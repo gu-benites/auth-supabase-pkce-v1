@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react"; 
+import { useFormStatus } from "react-dom"; // Corrected import
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +24,7 @@ function SubmitButton() {
 export default function RequestResetPage() {
   const { toast } = useToast();
   const initialState = { message: null, success: false };
-  const [state, formAction] = useFormState(requestPasswordReset, initialState);
+  const [state, formAction] = useActionState(requestPasswordReset, initialState);
 
   useEffect(() => {
     if (state?.message) {
