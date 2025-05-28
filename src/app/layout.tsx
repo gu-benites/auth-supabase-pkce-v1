@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { PHProvider } from '@/components/providers/posthog-provider'; // Assuming PostHog is set up, if not, this can be removed or conditional.
-import dynamic from 'next/dynamic';
+import { PHProvider } from '@/components/providers/posthog-provider';
+import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -20,12 +20,6 @@ export const metadata: Metadata = {
   description: 'Easily and securely reset your password with PassForge.',
 };
 
-// Dynamically import PostHogPageview to ensure it's client-side only
-const PostHogPageview = dynamic(() => import('@/components/analytics/posthog-pageview').then(mod => mod.PostHogPageview), {
-  ssr: false,
-});
-
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,7 +29,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <PHProvider>
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          <PostHogPageview />
+          <DynamicPostHogPageview />
           {children}
           <Toaster />
         </body>
