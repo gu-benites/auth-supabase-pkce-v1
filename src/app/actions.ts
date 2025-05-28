@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -35,7 +36,8 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
     };
   }
 
-  const redirectTo = `${origin}/auth/confirm`;
+  // Updated redirectTo to include the 'next' parameter for successful OTP verification
+  const redirectTo = `${origin}/auth/confirm?next=/reset-password`;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
