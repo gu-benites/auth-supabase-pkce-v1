@@ -3,7 +3,7 @@
 
 import { z } from "zod";
 import { headers } from "next/headers";
-// import { redirect } from "next/navigation"; // Not used directly for redirection, but good to keep if future actions need it
+import { redirect } from "next/navigation";
 
 import * as authService from '@/features/auth/services/auth.service';
 import {
@@ -11,18 +11,8 @@ import {
   passwordSchema as commonPasswordSchema,
   firstNameSchema as commonFirstNameSchema,
   lastNameSchema as commonLastNameSchema,
-  loginPasswordSchema as commonLoginPasswordSchema
-} from "@/features/auth/schemas";
-
-// Schemas specific to actions, re-exporting or using common ones
-const forgotPasswordEmailSchema = commonEmailSchema;
-const updateUserPasswordSchema = commonPasswordSchema;
-const signInEmailSchema = commonEmailSchema;
-const signInPasswordSchema = commonLoginPasswordSchema;
-const signUpEmailSchema = commonEmailSchema;
-const signUpPasswordSchema = commonPasswordSchema;
-const signUpFirstNameSchema = commonFirstNameSchema;
-const signUpLastNameSchema = commonLastNameSchema;
+} from "@/features/auth/schemas"; // Using barrel file for schemas
+import { loginPasswordSchema as commonLoginPasswordSchema } from "@/features/auth/schemas";
 
 
 interface AuthActionState {
@@ -34,12 +24,12 @@ interface AuthActionState {
 export async function requestPasswordReset(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = formData.get("email") as string;
 
-  const validation = forgotPasswordEmailSchema.safeParse(email);
-  if (!validation.success) {
+  const validationResult = commonEmailSchema.safeParse(email); // Use commonEmailSchema
+  if (!validationResult.success) {
     return {
       success: false,
-      message: validation.error.errors.map((e) => e.message).join(", "),
-      errorFields: { email: validation.error.errors.map((e) => e.message).join(", ") }
+      message: validationResult.error.errors.map((e) => e.message).join(", "),
+      errorFields: { email: validationResult.error.errors.map((e) => e.message).join(", ") }
     };
   }
 
@@ -79,7 +69,7 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
     };
   }
 
-  const passwordValidation = updateUserPasswordSchema.safeParse(password);
+  const passwordValidation = commonPasswordSchema.safeParse(password); // Use commonPasswordSchema
   if (!passwordValidation.success) {
     return {
       success: false,
@@ -88,13 +78,9 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
     };
   }
 
-  // No direct supabase.auth.getUser() here, service implies an authenticated context for updateUser
   const { error } = await authService.updateUserWithSupabase({ password });
 
   if (error) {
-    // Supabase's updateUser might return specific errors if user isn't authenticated
-    // or if the session isn't valid. We might need more robust checks upstream or
-    // rely on Supabase RLS for this.
     let friendlyMessage = `Failed to update password: ${error.message}`;
     if (error.message.includes("User not found") || error.message.includes("Auth session missing")) {
         friendlyMessage = "User not authenticated or session invalid. Please try the password reset process again.";
@@ -115,7 +101,7 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  const emailValidation = signInEmailSchema.safeParse(email);
+  const emailValidation = commonEmailSchema.safeParse(email); // Use commonEmailSchema
   if (!emailValidation.success) {
     return {
       success: false,
@@ -124,7 +110,7 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
     };
   }
 
-  const passwordValidation = signInPasswordSchema.safeParse(password);
+  const passwordValidation = commonLoginPasswordSchema.safeParse(password);
    if (!passwordValidation.success) {
     return {
       success: false,
@@ -148,12 +134,11 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
       message: "Login failed. Please check your credentials.",
     };
   }
-
-  // Redirect is handled by client-side navigation after success for better UX
-  return {
-    success: true,
-    message: "Logged in successfully! Redirecting...",
-  };
+  
+  // Client-side navigation should handle redirection after success,
+  // but if middleware protects /, this effectively redirects to a protected page
+  // or the specified page after successful login (e.g., /dashboard)
+  redirect('/'); // Redirect to homepage after successful login
 }
 
 export async function signUpNewUser(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -166,22 +151,22 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
   let errorFields: Record<string, string> = {};
   let overallMessage = "";
 
-  const firstNameValidation = signUpFirstNameSchema.safeParse(firstName);
+  const firstNameValidation = commonFirstNameSchema.safeParse(firstName);
   if (!firstNameValidation.success) {
     errorFields.firstName = firstNameValidation.error.errors.map((e) => e.message).join(", ");
   }
 
-  const lastNameValidation = signUpLastNameSchema.safeParse(lastName);
+  const lastNameValidation = commonLastNameSchema.safeParse(lastName);
   if (!lastNameValidation.success) {
     errorFields.lastName = lastNameValidation.error.errors.map((e) => e.message).join(", ");
   }
 
-  const emailValidation = signUpEmailSchema.safeParse(email);
+  const emailValidation = commonEmailSchema.safeParse(email); // Use commonEmailSchema
   if (!emailValidation.success) {
     errorFields.email = emailValidation.error.errors.map((e) => e.message).join(", ");
   }
 
-  const passwordValidation = signUpPasswordSchema.safeParse(password);
+  const passwordValidation = commonPasswordSchema.safeParse(password); // Use commonPasswordSchema
   if (!passwordValidation.success) {
     errorFields.password = passwordValidation.error.errors.map((e) => e.message).join(", ");
   }
@@ -194,7 +179,7 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
     overallMessage = "Please correct the errors in the form.";
      if (Object.keys(errorFields).length === 1 && errorFields.confirmPassword) {
         overallMessage = "Passwords do not match.";
-    } else if (Object.keys(errorFields).length === 1 && !errorFields.confirmPassword) { // check if not confirmPassword to avoid double message
+    } else if (Object.keys(errorFields).length === 1 && !errorFields.confirmPassword) { 
         overallMessage = Object.values(errorFields)[0];
     }
     return {
@@ -231,23 +216,31 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
     };
   }
 
-  if (!data.user && !data.session) { // More robust check as per Supabase docs
+  if (!data.user && !data.session) { 
      return {
       success: false,
-      // For some providers, data.user might be null if email confirmation is pending
-      // but data.session might also be null initially.
-      // The key is that `error` was null.
       message: data.user === null && data.session === null && !error ?
                "Sign up process initiated. Please check your email to confirm your account before logging in." :
                "Sign up successful, but no user data returned. Please check your email to confirm.",
     };
   }
   
-  // If user is immediately available (e.g. auto-confirm enabled, or some social providers)
-  // data.user will exist. If email confirmation is required, data.user might be null but an email sent.
-  // The key is that `error` is null.
   return {
     success: true,
     message: "Sign up successful! Please check your email to confirm your account before logging in.",
   };
+}
+
+
+export async function signOutUserAction() {
+  const { error } = await authService.signOutWithSupabase();
+
+  if (error) {
+    // This error might not be easily displayable if redirect happens immediately.
+    // Consider logging it or a more robust client-side error display if redirect fails.
+    console.error("Sign out error:", error.message);
+    // For now, we will attempt to redirect even if there's an error during sign out,
+    // as the session might be invalid anyway.
+  }
+  redirect('/login'); // Redirect to login page after sign out
 }
