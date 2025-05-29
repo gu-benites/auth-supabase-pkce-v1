@@ -1,76 +1,22 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+
+import { type NextRequest } from 'next/server';
+import { updateSession } from '@/features/auth/utils';
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  // Ensure environment variables are defined for middleware.
-  // These might need to be configured differently depending on your deployment environment.
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // Ensure environment variables are available for the utility function.
+  // While the utility itself checks, this is an early check.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Supabase URL or Anon Key is not defined in middleware. Please check environment variables.");
-    // Allow request to proceed but log error. Critical auth functionality might be affected.
-    return response;
+    console.error("Supabase URL or Anon Key is not defined at middleware entry. Please check environment variables.");
+    // If Supabase isn't configured, bypass session updates to avoid errors,
+    // but this means auth features will not work correctly.
+    // Consider how to handle this case based on your app's requirements.
+    // For now, we'll let the request proceed, and the utility will log another error.
   }
-
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request and response cookies.
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request and response cookies.
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
-  )
-
-  // Refresh session if expired - important for maintaining user login state.
-  await supabase.auth.getSession()
-
-  return response
+  
+  return await updateSession(request);
 }
 
 export const config = {
@@ -88,4 +34,4 @@ export const config = {
      */
     '/((?!api|_next/static|_next/image|favicon.ico|assets/|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-}
+};
