@@ -2,6 +2,17 @@
 import { type NextRequest } from 'next/server';
 import { updateSession } from '@/features/auth/utils';
 
+/**
+ * Next.js middleware entry point.
+ * This function is invoked for requests matching the `config.matcher` patterns.
+ * Its primary responsibility is to call the `updateSession` utility to manage
+ * user sessions (refreshing them if necessary) and handle route protection
+ * by redirecting unauthenticated users from protected paths.
+ *
+ * @param {NextRequest} request - The incoming Next.js request object.
+ * @returns {Promise<NextResponse>} A promise that resolves to a NextResponse,
+ *                                  which may include updated cookies or be a redirect.
+ */
 export async function middleware(request: NextRequest) {
   // Ensure environment variables are available for the utility function.
   // While the utility itself checks, this is an early check.
@@ -19,6 +30,19 @@ export async function middleware(request: NextRequest) {
   return await updateSession(request);
 }
 
+/**
+ * Configuration object for the Next.js middleware.
+ * The `matcher` property specifies the paths for which this middleware will run.
+ *
+ * It's configured to match all request paths except for:
+ * - `_next/static` (static files)
+ * - `_next/image` (image optimization files)
+ * - `favicon.ico` (favicon file)
+ * - `api/` (API routes, including Genkit)
+ * - `assets/` (any static assets folder)
+ * - `fonts/` (any static font folder)
+ * - Files with common image extensions (`.svg`, `.png`, `.jpg`, etc.)
+ */
 export const config = {
   matcher: [
     /*
