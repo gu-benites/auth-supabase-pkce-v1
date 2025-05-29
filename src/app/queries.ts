@@ -1,16 +1,5 @@
 
 "use server";
 
-// This file is for server-side data-fetching queries (Server Actions).
-// Add any data-fetching actions here. For example:
-/*
-export async function getSomeData(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('your_table').select('*').eq('id', id).single();
-  if (error) {
-    console.error('Error fetching data:', error);
-    return null;
-  }
-  return data;
-}
-*/
+// The server queries previously in this file have been moved to /src/features/auth/queries/auth.queries.ts (or other feature-specific query files).
+// This file can be deleted if it's no longer used for other purposes.

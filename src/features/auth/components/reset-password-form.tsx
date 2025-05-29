@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { updateUserPassword } from "@/app/mutations";
+import { updateUserPassword } from "@/features/auth/mutations"; // Updated import
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
