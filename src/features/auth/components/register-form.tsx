@@ -6,10 +6,10 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
-import { signUpNewUser } from "@/features/auth/mutations"; // Updated import
+import { signUpNewUser } from "@/features/auth/mutations";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
-import { UserPlus, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Mail, KeyRound, Loader2, Eye, EyeOff, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 function SubmitButton() {
@@ -38,7 +38,6 @@ export function RegisterForm() {
           description: state.message,
         });
         // No automatic redirect here, user needs to confirm email.
-        // Optionally, you could redirect to a page saying "check your email"
       } else {
         toast({
           title: "Registration Failed",
@@ -85,6 +84,48 @@ export function RegisterForm() {
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-6">
+            <div className="space-y-2">
+              <label
+                htmlFor="firstName"
+                className="block text-sm font-medium text-foreground"
+              >
+                First Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  placeholder="John"
+                  required
+                  className="pl-10 focus:ring-accent"
+                  aria-describedby={state?.errorFields?.firstName ? "firstName-error" : undefined}
+                />
+              </div>
+               {state?.errorFields?.firstName && <p id="firstName-error" className="text-sm text-destructive">{state.errorFields.firstName}</p>}
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="lastName"
+                className="block text-sm font-medium text-foreground"
+              >
+                Last Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  required
+                  className="pl-10 focus:ring-accent"
+                  aria-describedby={state?.errorFields?.lastName ? "lastName-error" : undefined}
+                />
+              </div>
+               {state?.errorFields?.lastName && <p id="lastName-error" className="text-sm text-destructive">{state.errorFields.lastName}</p>}
+            </div>
             <div className="space-y-2">
               <label
                 htmlFor="email"

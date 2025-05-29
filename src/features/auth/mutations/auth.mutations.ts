@@ -15,7 +15,12 @@ import type {
 import { emailSchema as forgotPasswordEmailSchema } from "@/features/auth/schemas/forgot-password.schema";
 import { passwordSchema as updateUserPasswordSchema } from "@/features/auth/schemas/update-password.schema";
 import { emailSchema as signInEmailSchema, loginPasswordSchema as signInPasswordSchema } from "@/features/auth/schemas/login.schema";
-import { emailSchema as signUpEmailSchema, passwordSchema as signUpPasswordSchema } from "@/features/auth/schemas/register.schema";
+import { 
+  emailSchema as signUpEmailSchema, 
+  passwordSchema as signUpPasswordSchema,
+  firstNameSchema,
+  lastNameSchema
+} from "@/features/auth/schemas/register.schema";
 
 
 export async function requestPasswordReset(prevState: any, formData: FormData) {
@@ -155,36 +160,53 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
 }
 
 export async function signUpNewUser(prevState: any, formData: FormData) {
+  const firstName = formData.get("firstName") as string;
+  const lastName = formData.get("lastName") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
 
+  let errorFields: Record<string, string> = {};
+  let overallMessage = "";
+
+  const firstNameValidation = firstNameSchema.safeParse(firstName);
+  if (!firstNameValidation.success) {
+    errorFields.firstName = firstNameValidation.error.errors.map((e) => e.message).join(", ");
+  }
+
+  const lastNameValidation = lastNameSchema.safeParse(lastName);
+  if (!lastNameValidation.success) {
+    errorFields.lastName = lastNameValidation.error.errors.map((e) => e.message).join(", ");
+  }
+
   const emailValidation = signUpEmailSchema.safeParse(email);
   if (!emailValidation.success) {
-    return {
-      success: false,
-      message: emailValidation.error.errors.map((e) => e.message).join(", "),
-      errorFields: { email: emailValidation.error.errors.map((e) => e.message).join(", ") }
-    };
+    errorFields.email = emailValidation.error.errors.map((e) => e.message).join(", ");
   }
 
   const passwordValidation = signUpPasswordSchema.safeParse(password);
   if (!passwordValidation.success) {
-    return {
-      success: false,
-      message: passwordValidation.error.errors.map((e) => e.message).join(", "),
-      errorFields: { password: passwordValidation.error.errors.map((e) => e.message).join(", ") }
-    };
+    errorFields.password = passwordValidation.error.errors.map((e) => e.message).join(", ");
   }
 
   if (password !== confirmPassword) {
-    return {
-      success: false,
-      message: "Passwords do not match.",
-      errorFields: { confirmPassword: "Passwords do not match." }
-    };
+    errorFields.confirmPassword = "Passwords do not match.";
   }
 
+  if (Object.keys(errorFields).length > 0) {
+    overallMessage = "Please correct the errors in the form.";
+     if (Object.keys(errorFields).length === 1 && errorFields.confirmPassword) {
+        overallMessage = "Passwords do not match.";
+    } else if (Object.keys(errorFields).length === 1) {
+        overallMessage = Object.values(errorFields)[0];
+    }
+    return {
+      success: false,
+      message: overallMessage,
+      errorFields
+    };
+  }
+  
   const supabase = await createClient();
   const origin = headers().get("origin");
 
@@ -202,6 +224,10 @@ export async function signUpNewUser(prevState: any, formData: FormData) {
     password,
     options: {
       emailRedirectTo,
+      data: { // This data is stored in user_metadata
+        first_name: firstName,
+        last_name: lastName,
+      }
     },
   });
 
