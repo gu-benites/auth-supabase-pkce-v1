@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui";
 import { PHProvider } from '@/components/providers/posthog-provider';
 import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview';
+import { AuthStateProvider } from '@/components/providers/auth-state-provider'; // New Provider
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 
 /**
  * Root layout component for the PassForge application.
- * It sets up global fonts, providers, and the basic HTML structure.
+ * It sets up global fonts, providers (including AuthStateProvider), and the basic HTML structure.
  *
  * @param {object} props - The properties for the component.
  * @param {React.ReactNode} props.children - The child components to be rendered within this layout.
@@ -41,11 +42,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <PHProvider>
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          <DynamicPostHogPageview />
-          {children}
-          <Toaster />
-        </body>
+        <AuthStateProvider> {/* AuthStateProvider wraps children to provide auth context */}
+          <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+            <DynamicPostHogPageview />
+            {children}
+            <Toaster />
+          </body>
+        </AuthStateProvider>
       </PHProvider>
     </html>
   );

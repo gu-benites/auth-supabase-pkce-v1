@@ -1,14 +1,31 @@
 // src/features/homepage/components/header.tsx
+'use client';
+
 import Link from 'next/link';
 import { PassForgeLogo } from '@/components/icons';
-import { Button } from '@/components/ui';
-import { signOutUserAction } from '@/features/auth/actions'; // Import the new action
+import { Button, Skeleton } from '@/components/ui';
+import { signOutUserAction } from '@/features/auth/actions';
+import { useAuth } from '@/stores/auth.store'; // Import the useAuth hook
 
-export function HomepageHeader() {
-  // TODO: Implement useAuth hook from Zustand (see docs/integrating-state-and-data-fetching.md)
-  // to conditionally render Login/Sign Up vs. Sign Out/Profile buttons.
-  // For now, all buttons are visible.
-  // const { isAuthenticated, user } = useAuth(); // Example of future state
+/**
+ * Renders the header for the homepage.
+ * Displays PassForge logo, application name, and navigation links.
+ * Navigation links change based on the user's authentication status (loading, authenticated, unauthenticated).
+ *
+ * @returns {JSX.Element} The homepage header component.
+ */
+export function HomepageHeader(): JSX.Element {
+  const { user, profile, isAuthenticated, isLoading, userMetadata } = useAuth();
+
+  // Determine display name: profile.username > userMetadata.first_name > user.email prefix
+  const getDisplayName = () => {
+    if (profile?.username) return profile.username;
+    if (userMetadata?.first_name) return userMetadata.first_name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'User';
+  };
+
+  const displayName = getDisplayName();
 
   return (
     <header className="py-4 px-6 md:px-8 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
@@ -20,14 +37,21 @@ export function HomepageHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
-          {/* Example of conditional rendering (needs useAuth to be implemented)
-          {isAuthenticated ? (
+          {isLoading ? (
             <>
-              <span>Hi, {user?.email}</span> {}
-              <form action={signOutUserAction}>
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-20 rounded-md" />
+              <Skeleton className="h-8 w-20 rounded-md" />
+            </>
+          ) : isAuthenticated && user ? (
+            <>
+              <span className="text-sm text-foreground hidden sm:inline">
+                Hi, {displayName}
+              </span>
+              <form action={signOutUserAction} className="inline-flex">
                 <Button variant="ghost" type="submit">Sign Out</Button>
               </form>
-              <Button variant="default" asChild>
+              <Button variant="secondary" asChild>
                 <Link href="/profile">Profile</Link>
               </Button>
             </>
@@ -44,24 +68,6 @@ export function HomepageHeader() {
               </Button>
             </>
           )}
-          */}
-
-          {/* For now, showing all links for demonstration until useAuth is implemented */}
-          <Button variant="ghost" asChild>
-            <Link href="/forgot-password">Request Reset</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/login">Login</Link>
-          </Button>
-          <Button variant="default" asChild>
-            <Link href="/register">Sign Up</Link>
-          </Button>
-           <form action={signOutUserAction} className="inline-flex">
-            <Button variant="outline" type="submit">Sign Out</Button>
-          </form>
-          <Button variant="secondary" asChild>
-            <Link href="/profile">Profile</Link>
-          </Button>
         </nav>
       </div>
     </header>
