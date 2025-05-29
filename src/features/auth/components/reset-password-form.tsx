@@ -10,7 +10,7 @@ import { updateUserPassword } from "@/app/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
-import { createBrowserClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client"; // Updated import
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -24,7 +24,7 @@ function SubmitButton() {
 
 export default function ResetPasswordForm() {
   const router = useRouter();
-  const supabase = createBrowserClient();
+  const supabase = createClient(); // Updated usage
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get("email");
