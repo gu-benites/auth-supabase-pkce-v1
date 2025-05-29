@@ -52,7 +52,7 @@ interface AuthState {
   };
 }
 
-const supabase = createClient();
+const supabase = createClient(); // Use the client-side Supabase instance
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .eq('id', userId)
           .single();
 
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116: 0 rows
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116: 0 rows means no profile, not an error
             throw profileError;
         }
 
@@ -215,14 +215,14 @@ export function AuthStateProvider({ children }: { children: React.ReactNode }) {
 **Use it in `src/app/layout.tsx`:**
 ```tsx
 // src/app/layout.tsx
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google'; // Or your preferred fonts
 import './globals.css';
 import { Toaster } from '@/components/ui';
-import { PHProvider } from '@/components/providers/posthog-provider';
-import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview';
+import { PHProvider } from '@/components/providers/posthog-provider'; // Assuming you have this
+import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview'; // Assuming
 import { AuthStateProvider } from '@/components/providers/auth-state-provider'; // New Provider
 
-const geistSans = Geist(/* ... */);
+const geistSans = Geist(/* ... */); // Configure your fonts
 const geistMono = Geist_Mono(/* ... */);
 
 export const metadata = { /* ... */ };
@@ -260,7 +260,7 @@ import { createClient } from '@/lib/supabase/client'; // For client-side sign-ou
 
 export function HomepageHeader() {
   const { user, profile, isAuthenticated, isLoading, actions, userMetadata } = useAuth();
-  const supabase = createClient();
+  const supabase = createClient(); // Client-side Supabase for sign-out
 
   const handleSignOut = async () => {
     // Sign out is better handled via a Server Action for consistency if it involves more logic,
@@ -518,8 +518,8 @@ You would then create a page like `src/app/dashboard/page.tsx` to render this `D
 
 *   **Row Level Security (RLS):** This is **critical**. Ensure your Supabase tables (`profiles`, `dashboard_items`, etc.) have RLS policies enabled so users can only access/modify their own data. Server Actions using the authenticated Supabase client (via `src/lib/supabase/server.ts`) will respect these policies.
 *   **Supabase Client Instances**:
-    *   Zustand store (client-side): Use `createClient()` from `@/lib/supabase/client`.
-    *   TanStack Query `queryFn` (Server Actions, like `getDashboardData`): Use `await createClient()` from `@/lib/supabase/server`.
+    *   Zustand store (client-side): Use `createClient()` from `@/lib/supabase/client`. This is a synchronous function.
+    *   TanStack Query `queryFn` (Server Actions, like `getDashboardData`): Use `await createClient()` from `@/lib/supabase/server`. This is an asynchronous function.
     *   TanStack Query `mutationFn` (if client-side, though Server Actions are preferred for mutations): Use `createClient()` from `@/lib/supabase/client`.
 *   **Invalidation and Refetching:** After mutations (e.g., adding a dashboard item via a Server Action located in `src/features/dashboard/actions/`), use `queryClient.invalidateQueries({ queryKey: ['dashboardData'] })` from TanStack Query to refetch data and keep the UI consistent.
 *   **Error and Loading States**: Implement robust UI feedback for loading, error, and empty states.
@@ -531,5 +531,5 @@ Integrating Zustand for global auth state and TanStack Query for server state ma
 - **Zustand (`useAuth`)** offers a reactive, global source for user authentication status and profile (including `user_metadata` and optionally data from a `profiles` table).
 - **TanStack Query** simplifies data fetching, caching, and synchronization for features like dashboards, leveraging Server Actions for secure data access.
 Remember to adapt table names, profile structures, and data fetching logic to your specific application needs and always prioritize security with RLS policies in Supabase.
-
+    
     

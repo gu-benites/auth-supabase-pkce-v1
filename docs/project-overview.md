@@ -22,7 +22,7 @@ The goal is to offer a clear guide for understanding, maintaining, and extending
 This section describes the step-by-step process for each authentication-related user action.
 Form submissions are handled by **Server Actions** located in `src/features/auth/actions/auth.actions.ts`. These Server Actions then call **Service Functions** in `src/features/auth/services/auth.service.ts` which perform the direct interactions with Supabase.
 
-### 1. User Registration (`/(auth)/register/page.tsx`)
+### 1. User Registration (`/src/app/(auth)/register/page.tsx`)
 
 - **User Interface (`src/features/auth/components/register-form.tsx` - Client Component):**
     - User provides: First Name, Last Name, Email, Password, and Confirm Password.
@@ -41,7 +41,7 @@ Form submissions are handled by **Server Actions** located in `src/features/auth
 - **User Feedback:**
     - Upon successful initiation of sign-up, the user sees a message prompting them to check their email for a confirmation link and a button to navigate to the login page.
 
-### 2. Email Confirmation (`/(auth)/auth/confirm/route.ts`)
+### 2. Email Confirmation (`/src/app/(auth)/auth/confirm/route.ts`)
 
 - **Trigger:** User clicks the confirmation link in the email they received. The link format is typically: `.../auth/confirm?token_hash=...&type=...&next=...[&email=...]`.
 - **Processing (`src/app/(auth)/auth/confirm/route.ts` - GET Route Handler):**
@@ -51,7 +51,7 @@ Form submissions are handled by **Server Actions** located in `src/features/auth
     - **Success:** If OTP verification is successful, the user is redirected to the URL specified in the `next` query parameter (e.g., `/login` for registration, `/reset-password` for password recovery). Any additional query parameters from the original confirmation link (except `token_hash` and `type`) are forwarded to the `next` URL.
     - **Failure:** If verification fails (e.g., token expired, invalid), the user is redirected to `/auth/auth-code-error`. **Note:** You must create this error page (e.g., `src/app/(auth)/auth/auth-code-error/page.tsx`) to provide meaningful feedback to the user.
 
-### 3. User Login (`/(auth)/login/page.tsx`)
+### 3. User Login (`/src/app/(auth)/login/page.tsx`)
 
 - **User Interface (`src/features/auth/components/login-form.tsx` - Client Component):**
     - User provides Email and Password.
@@ -67,7 +67,7 @@ Form submissions are handled by **Server Actions** located in `src/features/auth
     - **Success:** Supabase returns a session. The `src/middleware.ts` plays a crucial role in managing and refreshing this session cookie. The user is then redirected to the homepage (`/`).
     - **Failure:** An error message is displayed to the user via toast notification.
 
-### 4. Forgot Password (`/(auth)/forgot-password/page.tsx`)
+### 4. Forgot Password (`/src/app/(auth)/forgot-password/page.tsx`)
 
 - **User Interface (`src/features/auth/components/forgot-password-form.tsx` - Client Component):**
     - User enters their registered email address.
@@ -83,7 +83,7 @@ Form submissions are handled by **Server Actions** located in `src/features/auth
 - **User Feedback:**
     - A message indicates that if an account exists for that email, a password reset link has been sent.
 
-### 5. Password Reset (`/(auth)/reset-password/page.tsx`)
+### 5. Password Reset (`/src/app/(auth)/reset-password/page.tsx`)
 
 - **Access:** User arrives here after clicking the password reset link in their email, which is processed by the `/auth/confirm` route handler. The URL will include the `email` as a query parameter.
 - **User Interface (`src/features/auth/components/reset-password-form.tsx` - Client Component):**
@@ -147,7 +147,7 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - `src/app/(auth)/auth/confirm/route.ts`: Handles the GET request for email confirmation links.
 
 ### Role of Middleware (`src/middleware.ts`)
-- The `middleware.ts` file is crucial for Supabase session management and route protection. It runs on the server before a request is processed for matching paths.
+- The `src/middleware.ts` file is crucial for Supabase session management and route protection. It runs on the server before a request is processed for matching paths.
 - It calls `updateSession` from `src/features/auth/utils/middleware.utils.ts`.
 - The `updateSession` utility:
     - Initializes the Supabase server client with cookies from the request.
@@ -170,6 +170,7 @@ The project follows a feature-based organization within the `src` directory.
         - `services/`: Contains direct Supabase interaction logic.
             - `auth.service.ts`
         - `queries/`: (Placeholder) Server Actions for auth data fetching.
+            - `auth.queries.ts`
         - `schemas/`: Zod validation schemas.
         - `hooks/`: (Placeholder) Custom React hooks specific to authentication.
         - `utils/`: Utility functions specific to auth features.
@@ -218,5 +219,5 @@ The project follows a feature-based organization within the `src` directory.
 
 This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
 The accompanying `integrating-state-and-data-fetching.md` guide provides next steps for managing user state globally and fetching user-specific data.
-
+    
     
