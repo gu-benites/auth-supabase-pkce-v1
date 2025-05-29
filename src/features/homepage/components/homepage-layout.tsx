@@ -4,7 +4,7 @@ import { HeroSection } from '@/features/homepage/components';
 // TODO: This import should eventually point to the new useAuth hook from @/features/auth/hooks/
 // once Tasks 1.1 through 1.5 of implementation-consultant.md are complete.
 // For now, it uses the existing Zustand-based hook.
-import { useAuth } from '@/stores/auth.store';
+import { useAuth } from '@/features/auth/hooks/';
 
 /**
  * Defines the main layout structure for the homepage.
