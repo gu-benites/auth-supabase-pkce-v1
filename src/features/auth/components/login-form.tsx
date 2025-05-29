@@ -7,7 +7,7 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
-import { signInWithPassword } from "@/features/auth/mutations"; // Updated import
+import { signInWithPassword } from "@/features/auth/actions"; // Updated import
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";

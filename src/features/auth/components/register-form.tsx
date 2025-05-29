@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
-import { signUpNewUser } from "@/features/auth/mutations";
+import { signUpNewUser } from "@/features/auth/actions"; // Updated import
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { UserPlus, Mail, KeyRound, Loader2, Eye, EyeOff, User } from "lucide-react";
@@ -38,6 +38,7 @@ export function RegisterForm() {
           description: state.message,
         });
         // No automatic redirect here, user needs to confirm email.
+        // Form will re-render to show success message.
       } else {
         toast({
           title: "Registration Failed",
