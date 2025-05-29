@@ -5,7 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui";
 import { PHProvider } from '@/components/providers/posthog-provider';
 import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview';
-import { AuthStateProvider } from '@/components/providers/auth-state-provider';
+import { AuthSessionProvider } from '@/components/providers/auth-session-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -42,13 +42,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <PHProvider>
-        <AuthStateProvider>
+        <AuthSessionProvider>
           <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
             <DynamicPostHogPageview />
             {children}
             <Toaster />
           </body>
-        </AuthStateProvider>
+        </AuthSessionProvider>
       </PHProvider>
     </html>
   );
