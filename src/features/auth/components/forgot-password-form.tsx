@@ -7,7 +7,7 @@ import { useFormStatus } from "react-dom";
 import { Input } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { requestPasswordReset } from "@/app/actions";
+import { requestPasswordReset } from "@/app/mutations";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { Mail, Loader2 } from "lucide-react";

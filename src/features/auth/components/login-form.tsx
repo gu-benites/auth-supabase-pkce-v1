@@ -7,7 +7,7 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
-import { signInWithPassword } from "@/app/actions"; 
+import { signInWithPassword } from "@/app/mutations";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
@@ -37,7 +37,7 @@ export default function LoginForm() {
           description: state.message,
         });
         // Redirect to the new homepage (root) after successful login
-        router.push('/'); 
+        router.push('/');
       } else {
         toast({
           title: "Login Failed",

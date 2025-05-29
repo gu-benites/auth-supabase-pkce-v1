@@ -6,11 +6,11 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { updateUserPassword } from "@/app/actions";
+import { updateUserPassword } from "@/app/mutations";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase/client"; // Updated import
+import { createClient } from "@/lib/supabase/client";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -24,7 +24,7 @@ function SubmitButton() {
 
 export default function ResetPasswordForm() {
   const router = useRouter();
-  const supabase = createClient(); // Updated usage
+  const supabase = createClient();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get("email");
@@ -43,7 +43,7 @@ export default function ResetPasswordForm() {
           description: "You are not authorized to update password. Please try the reset process again.",
           variant: "destructive",
         });
-        router.push('/forgot-password'); 
+        router.push('/forgot-password');
       }
       setIsLoadingUser(false);
     });
