@@ -256,24 +256,10 @@ import Link from 'next/link';
 import { PassForgeLogo } from '@/components/icons';
 import { Button, Skeleton } from '@/components/ui';
 import { useAuth } from '@/stores/auth.store'; // Adjust path if needed
-import { createClient } from '@/lib/supabase/client'; // For client-side sign-out
+import { signOutUserAction } from '@/features/auth/actions'; // Use the Server Action for sign out
 
 export function HomepageHeader() {
-  const { user, profile, isAuthenticated, isLoading, actions, userMetadata } = useAuth();
-  const supabase = createClient(); // Client-side Supabase for sign-out
-
-  const handleSignOut = async () => {
-    // Sign out is better handled via a Server Action for consistency if it involves more logic,
-    // but direct client-side sign-out is also common for simple cases.
-    // For this example, let's assume you might create a signOut Server Action.
-    // await signOutUserAction(); // Example if using a Server Action
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        console.error('Error signing out:', error);
-        // Optionally show a toast error
-    }
-    // onAuthStateChange in auth.store.ts will handle clearing state
-  };
+  const { user, profile, isAuthenticated, isLoading, userMetadata } = useAuth();
 
   // Display name preference: profile.username -> userMetadata.first_name -> user.email
   const displayName = profile?.username || userMetadata?.first_name || user?.email?.split('@')[0];
@@ -296,9 +282,14 @@ export function HomepageHeader() {
           ) : isAuthenticated && user ? (
             <>
               <span className="text-sm text-foreground">
-                Hi, {displayName}
+                Hi, {displayName || 'User'}
               </span>
-              <Button variant="ghost" onClick={handleSignOut}>Sign Out</Button>
+              <form action={signOutUserAction} className="inline-flex">
+                <Button variant="ghost" type="submit">Sign Out</Button>
+              </form>
+              <Button variant="secondary" asChild>
+                <Link href="/profile">Profile</Link> {/* Assuming /profile route exists */}
+              </Button>
             </>
           ) : (
             <>
@@ -389,50 +380,69 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 
 ### 2. Creating a Data Fetching Function (Server Action for Query)
 
-Fetch data securely on the server using a Server Action. Place this in a `queries` subdirectory of the relevant feature.
+Fetch data securely on the server using a Server Action. Place this in a `queries` subdirectory of the relevant feature. This pattern involves a Server Action that internally calls a service function.
 
-**Example: `src/features/dashboard/queries/dashboard.queries.ts`**
+**Example: `src/features/dashboard/services/dashboard.service.ts`**
 ```typescript
-// src/features/dashboard/queries/dashboard.queries.ts
+// src/features/dashboard/services/dashboard.service.ts
 'use server';
 
-import { createClient } from '@/lib/supabase/server'; // Server-side Supabase client
+import { createClient } from '@/lib/supabase/server';
 
-export interface DashboardItem { // Define a type for your items
+export interface DashboardItem {
   id: string;
   name: string;
   user_id: string;
   // ... other properties
 }
 
-export async function getDashboardData(): Promise<DashboardItem[]> {
-  const supabase = await createClient(); // Use await for async createClient
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    // It's often better to return empty/default data or let TanStack Query handle the disabled state
-    // rather than throwing an error that might be hard to catch gracefully in the UI.
-    // throw new Error('User not authenticated');
-    return [];
-  }
+export async function fetchDashboardItemsForUser(userId: string): Promise<DashboardItem[]> {
+  const supabase = await createClient();
 
   // IMPORTANT: This assumes you have a 'dashboard_items' table in Supabase
   // with RLS policies ensuring users can only see their own data (e.g., `auth.uid() = user_id`).
   const { data, error } = await supabase
     .from('dashboard_items') // Replace with your actual table name
     .select('*')
-    .eq('user_id', user.id); // Filter by the authenticated user's ID
+    .eq('user_id', userId); // Filter by the authenticated user's ID
 
   if (error) {
-    console.error('Error fetching dashboard data:', error);
-    // You might want to throw a more specific error or return an error object
-    throw new Error(`Failed to fetch dashboard data: ${error.message}`);
+    console.error('Error fetching dashboard data from service:', error);
+    throw new Error(`Service failed to fetch dashboard data: ${error.message}`);
   }
-
   return data || [];
 }
 ```
-Remember to create `src/features/dashboard/queries/index.ts` to export this function if you follow the barrel file pattern.
+
+**Example: `src/features/dashboard/queries/dashboard.queries.ts`** (This is the Server Action used by TanStack Query)
+```typescript
+// src/features/dashboard/queries/dashboard.queries.ts
+'use server';
+
+import { createClient } from '@/lib/supabase/server'; // Server-side Supabase client
+import { fetchDashboardItemsForUser, type DashboardItem } from '@/features/dashboard/services'; // Import service
+
+export async function getDashboardData(): Promise<DashboardItem[]> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    // It's often better to return empty/default data or let TanStack Query handle the disabled state
+    // rather than throwing an error that might be hard to catch gracefully in the UI.
+    return [];
+  }
+
+  try {
+    // The Server Action calls the service function
+    return await fetchDashboardItemsForUser(user.id);
+  } catch (error) {
+    console.error('Error in getDashboardData query action:', error);
+    // Re-throw or handle as appropriate for TanStack Query
+    throw error;
+  }
+}
+```
+Remember to create `src/features/dashboard/services/index.ts` and `src/features/dashboard/queries/index.ts` to export these functions if you follow the barrel file pattern.
 
 ### 3. Using `useQuery` in a Dashboard Component
 
@@ -447,7 +457,7 @@ import { useAuth } from '@/stores/auth.store'; // To check authentication status
 import { Skeleton, Card, CardHeader, CardTitle, CardContent } from '@/components/ui'; // Example UI components
 
 export function DashboardDisplay() {
-  const { isAuthenticated, isLoading: authIsLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
 
   // `useQuery` fetches data using the `getDashboardData` Server Action.
   const {
@@ -457,10 +467,10 @@ export function DashboardDisplay() {
     error,
     isFetching, // Useful for showing loading indicators on refetches
   } = useQuery<DashboardItem[], Error>({
-    queryKey: ['dashboardData'], // Unique key for this query. Can include user ID if data is user-specific.
+    queryKey: ['dashboardData', user?.id], // Unique key for this query. Include user ID.
     queryFn: getDashboardData,
     // Only enable the query if the user is authenticated and initial auth check is done.
-    enabled: isAuthenticated && !authIsLoading,
+    enabled: isAuthenticated && !authIsLoading && !!user?.id,
     // Other options like refetchInterval, onSuccess, onError can be configured here.
   });
 
@@ -516,12 +526,12 @@ You would then create a page like `src/app/dashboard/page.tsx` to render this `D
 
 ### Key Considerations:
 
-*   **Row Level Security (RLS):** This is **critical**. Ensure your Supabase tables (`profiles`, `dashboard_items`, etc.) have RLS policies enabled so users can only access/modify their own data. Server Actions using the authenticated Supabase client (via `src/lib/supabase/server.ts`) will respect these policies.
+*   **Row Level Security (RLS):** This is **critical**. Ensure your Supabase tables (`profiles`, `dashboard_items`, etc.) have RLS policies enabled so users can only access/modify their own data. Server Actions and Service functions using the authenticated Supabase client (via `src/lib/supabase/server.ts`) will respect these policies.
 *   **Supabase Client Instances**:
     *   Zustand store (client-side): Use `createClient()` from `@/lib/supabase/client`. This is a synchronous function.
-    *   TanStack Query `queryFn` (Server Actions, like `getDashboardData`): Use `await createClient()` from `@/lib/supabase/server`. This is an asynchronous function.
+    *   TanStack Query `queryFn` (Server Actions, like `getDashboardData` which calls a service): The service function (`fetchDashboardItemsForUser`) will use `await createClient()` from `@/lib/supabase/server`. This is an asynchronous function.
     *   TanStack Query `mutationFn` (if client-side, though Server Actions are preferred for mutations): Use `createClient()` from `@/lib/supabase/client`.
-*   **Invalidation and Refetching:** After mutations (e.g., adding a dashboard item via a Server Action located in `src/features/dashboard/actions/`), use `queryClient.invalidateQueries({ queryKey: ['dashboardData'] })` from TanStack Query to refetch data and keep the UI consistent.
+*   **Invalidation and Refetching:** After mutations (e.g., adding a dashboard item via a Server Action located in `src/features/dashboard/actions/`), use `queryClient.invalidateQueries({ queryKey: ['dashboardData', userId] })` from TanStack Query to refetch data and keep the UI consistent. Make sure to include relevant parts of the `queryKey` for targeted invalidation.
 *   **Error and Loading States**: Implement robust UI feedback for loading, error, and empty states.
 *   **User Experience**: Think about how data fetching impacts UX. The `enabled` flag in `useQuery` is good. Consider placeholders, optimistic updates for mutations, etc.
 
@@ -529,7 +539,7 @@ You would then create a page like `src/app/dashboard/page.tsx` to render this `D
 
 Integrating Zustand for global auth state and TanStack Query for server state management provides a powerful and scalable architecture.
 - **Zustand (`useAuth`)** offers a reactive, global source for user authentication status and profile (including `user_metadata` and optionally data from a `profiles` table).
-- **TanStack Query** simplifies data fetching, caching, and synchronization for features like dashboards, leveraging Server Actions for secure data access.
+- **TanStack Query** simplifies data fetching, caching, and synchronization for features like dashboards, leveraging Server Actions (which call service functions) for secure data access.
 Remember to adapt table names, profile structures, and data fetching logic to your specific application needs and always prioritize security with RLS policies in Supabase.
-    
+
     

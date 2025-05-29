@@ -3,7 +3,7 @@
 
 ## Introduction
 
-This document provides a comprehensive overview of the authentication flow implemented in this Next.js project, utilizing Supabase for backend services. It details the user journey for registration, login, and password management, explains the critical concepts of `'use client'` and `'use server'` directives within the Next.js App Router, outlines the project structure, and offers guidance for adapting this template.
+This document provides a comprehensive overview of the authentication flow implemented in this Next.js project, utilizing Supabase for backend services. It details the user journey for registration, login, password management, and sign-out, explains the critical concepts of `'use client'` and `'use server'` directives within the Next.js App Router, outlines the project structure, and offers guidance for adapting this template.
 
 The goal is to offer a clear guide for understanding, maintaining, and extending this authentication foundation for various projects.
 
@@ -20,7 +20,7 @@ The goal is to offer a clear guide for understanding, maintaining, and extending
 ## I. Authentication Flow Details
 
 This section describes the step-by-step process for each authentication-related user action.
-Form submissions are handled by **Server Actions** located in `src/features/auth/actions/auth.actions.ts`. These Server Actions then call **Service Functions** in `src/features/auth/services/auth.service.ts` which perform the direct interactions with Supabase.
+Form submissions and auth operations are handled by **Server Actions** located in `src/features/auth/actions/auth.actions.ts`. These Server Actions then call **Service Functions** in `src/features/auth/services/auth.service.ts` which perform the direct interactions with Supabase.
 
 ### 1. User Registration (`/src/app/(auth)/register/page.tsx`)
 
@@ -101,6 +101,20 @@ Form submissions are handled by **Server Actions** located in `src/features/auth
 - **User Feedback:**
     - On success, a confirmation message is shown, and the user is presented with a button to navigate to the login page.
 
+### 6. User Sign Out (Example: Homepage Header)
+
+- **User Interface (e.g., `src/features/homepage/components/header.tsx` - Client Component):**
+    - A "Sign Out" button is present.
+    - Ideally, this button is only visible to authenticated users (requires client-side auth state, e.g., via Zustand `useAuth` hook as described in `integrating-state-and-data-fetching.md`).
+- **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
+    - Clicking the "Sign Out" button (which is inside a `<form>`) triggers the `signOutUserAction` Server Action.
+- **Service Call (`src/features/auth/services/auth.service.ts`):**
+    - The Server Action calls the `signOutWithSupabase` service function.
+- **Supabase Interaction (within Service):**
+    - `supabase.auth.signOut()` is called to invalidate the user's session.
+- **Redirection:**
+    - Upon successful sign-out, the `signOutUserAction` redirects the user to the `/login` page.
+
 ## II. 'use client' vs. 'use server' Explained
 
 The Next.js App Router introduces a paradigm where components are **Server Components by default**. Directives like `'use client'` and `'use server'` are used to specify component rendering environments and define server-side functions (Server Actions).
@@ -132,7 +146,7 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - Can securely access server-side resources: databases (Supabase), internal APIs, environment variables.
     - Ideal for data mutations, form handling, and any operation requiring secure server-side execution.
 - **In this project:**
-    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, etc.). Each of these functions handles form data, calls services, and returns a state object. This file is marked with `'use server';`.
+    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, `signOutUserAction`, etc.). Each of these functions handles form data, calls services, and returns a state object. This file is marked with `'use server';`.
     - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. While not directly called from the client, this file is also marked with `'use server';` as it's part of the server-side execution boundary initiated by Server Actions and uses the server Supabase client.
     - `src/features/auth/queries/auth.queries.ts`: Placeholder for future auth-related data-fetching Server Actions. Marked with `'use server';`.
     - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
@@ -161,7 +175,13 @@ The project follows a feature-based organization within the `src` directory.
 
 - **`/src/app/`**:
     - Global files (`layout.tsx`, `globals.css`, `page.tsx` for homepage).
-    - **`(auth)/`**: Route group for authentication pages (`login/page.tsx`, `register/page.tsx`, etc.) and the `auth/confirm/route.ts` handler. Page files are lean, importing main components from `src/features/auth/components/`.
+    - **`(auth)/`**: Route group for authentication pages.
+        - `auth/confirm/route.ts`
+        - `forgot-password/page.tsx`
+        - `login/page.tsx`
+        - `register/page.tsx`
+        - `reset-password/page.tsx`
+    - Page files are lean, importing main components from `src/features/.../components/`.
 - **`/src/features/`**:
     - **`auth/`**:
         - `components/`: Client Components for authentication forms.
@@ -176,6 +196,7 @@ The project follows a feature-based organization within the `src` directory.
         - `utils/`: Utility functions specific to auth features.
             - `middleware.utils.ts`
     - **`homepage/`**: Components related to the main homepage.
+        - `components/`
 - **`/src/components/`**:
     - `ui/`: Reusable ShadCN UI components.
     - `icons/`: Custom SVG icon components.
@@ -199,12 +220,12 @@ The project follows a feature-based organization within the `src` directory.
 3.  **Redirection URLs:**
     - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts` (passed to services).
     - [ ] Adjust the `next` query parameter logic in `src/app/(auth)/auth/confirm/route.ts` if post-confirmation redirect paths differ.
-    - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action).
+    - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action, post-signout redirect in `signOutUserAction`).
     - [ ] Review public paths in `src/features/auth/utils/middleware.utils.ts` for route protection.
 4.  **Error Handling Pages:**
     - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth/auth-code-error/page.tsx`).
 5.  **Protected Routes Strategy:**
-    - [ ] The `src/features/auth/utils/middleware.utils.ts` already implements a basic route protection strategy. Adjust the `publicPaths` array as needed.
+    - [ ] The `src/features/auth/utils/middleware.utils.ts` already implements a basic route protection strategy. Adjust the `publicPaths` array as needed (e.g., homepage `/`, auth pages, any truly public marketing pages).
 6.  **Additional User Metadata:**
     - [ ] If collecting more data at registration:
         - Add fields to `src/features/auth/components/register-form.tsx`.
@@ -219,5 +240,5 @@ The project follows a feature-based organization within the `src` directory.
 
 This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
 The accompanying `integrating-state-and-data-fetching.md` guide provides next steps for managing user state globally and fetching user-specific data.
-    
+
     
