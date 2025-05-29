@@ -1,7 +1,7 @@
 // src/features/profile/queries/profile.queries.ts
 'use server';
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { UserProfileSchema, type UserProfile } from '../schemas/profile.schema';
 import { getProfileByUserId } from '../services/profile.service';
 
@@ -13,7 +13,7 @@ import { getProfileByUserId } from '../services/profile.service';
  * @throws Error if user is not authenticated, profile is not found, or service fails.
  */
 export async function getCurrentUserProfile(): Promise<UserProfile> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 

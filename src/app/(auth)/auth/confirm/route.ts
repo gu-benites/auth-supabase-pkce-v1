@@ -27,10 +27,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type') as EmailOtpType | null;
   const nextPath = searchParams.get('next') ?? '/'; // Default to home if 'next' is not provided
 
+  console.log('Confirm route received:', { token_hash, type, nextPath });
+
   if (token_hash && type) {
     const supabase = await createClient();
 
-    const { error } = await supabase.auth.verifyOtp({
+    console.log('Supabase client created successfully');
+
+    const { error } = await supabase.auth.verifyOtp(
+    {
       type,
       token_hash,
     });
@@ -53,6 +58,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return redirect(redirectUrl);
     }
   }
+
+  console.error('OTP verification failed or missing token/type:', error);
 
   // Redirect the user to an error page with some instructions
   // Ensure /auth/auth-code-error page exists

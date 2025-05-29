@@ -3,9 +3,10 @@
 
 import Link from 'next/link';
 import { PassForgeLogo } from '@/components/icons';
+import { Loader2 } from 'lucide-react';
 import { Button, Skeleton } from '@/components/ui';
 import { signOutUserAction } from '@/features/auth/actions';
-import { useAuth } from '@/stores/auth.store'; // Import the useAuth hook
+import { useAuth } from '@/features/auth/hooks'; // Import the useAuth hook
 
 /**
  * Renders the header for the homepage.
@@ -38,12 +39,9 @@ export function HomepageHeader(): JSX.Element {
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
           {isLoading ? (
-            <>
-              <Skeleton className="h-8 w-24" />
-              <Skeleton className="h-8 w-20 rounded-md" />
-              <Skeleton className="h-8 w-20 rounded-md" />
-            </>
-          ) : isAuthenticated && user ? (
+            // Show a spinner while loading
+            <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+          ) : isAuthenticated ? (
             <>
               <span className="text-sm text-foreground hidden sm:inline">
                 Hi, {displayName}
@@ -52,7 +50,7 @@ export function HomepageHeader(): JSX.Element {
                 <Button variant="ghost" type="submit">Sign Out</Button>
               </form>
               <Button variant="secondary" asChild>
-                <Link href="/profile">Profile</Link>
+                <Link href="/dashboard">Dashboard</Link>
               </Button>
             </>
           ) : (

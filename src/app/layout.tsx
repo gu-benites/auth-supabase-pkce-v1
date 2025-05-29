@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -6,6 +5,7 @@ import { Toaster } from "@/components/ui";
 import { PHProvider } from '@/components/providers/posthog-provider';
 import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview';
 import { AuthSessionProvider } from '@/components/providers/auth-session-provider';
+import QueryClientProvider from '@/components/providers/query-client-provider'; // Import the new Client Component
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -41,15 +41,19 @@ export default function RootLayout({
 }>): JSX.Element {
   return (
     <html lang="en" suppressHydrationWarning>
-      <PHProvider>
-        <AuthSessionProvider>
-          <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-            <DynamicPostHogPageview />
-            {children}
-            <Toaster />
-          </body>
-        </AuthSessionProvider>
-      </PHProvider>
+      <body>
+        <QueryClientProvider> {/* Use the new Client Component here */}
+          <PHProvider>
+            <AuthSessionProvider>
+              <div className={`${geistSans.variable} ${geistMono.variable} antialiased`}> {/* Use a div or other element instead of body */}
+                <DynamicPostHogPageview />
+                {children}
+              </div>
+            </AuthSessionProvider>
+          </PHProvider>
+        </QueryClientProvider>
+        <Toaster /> {/* Toaster should be outside the QueryClientProvider if it doesn't use query hooks */}
+      </body>
     </html>
   );
 }

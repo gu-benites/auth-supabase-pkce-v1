@@ -1,7 +1,7 @@
 // src/features/profile/services/profile.service.ts
 'use server'; // Important: This service will be called by a Server Action
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { type UserProfile, UserProfileSchema } from '../schemas/profile.schema';
 import { PostgrestError } from '@supabase/supabase-js';
 
@@ -24,7 +24,7 @@ export interface ProfileServiceResponse {
  * @returns An object containing the user profile data or an error.
  */
 export async function getProfileByUserId(userId: string): Promise<ProfileServiceResponse> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
 
   try {
     // 1. Fetch profile data from the 'profiles' table
