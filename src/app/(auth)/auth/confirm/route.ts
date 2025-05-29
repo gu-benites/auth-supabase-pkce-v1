@@ -2,7 +2,7 @@
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { type NextRequest } from 'next/server';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server'; // Corrected import
+import { createClient } from '@/lib/supabase/server'; // Corrected: direct import from server
 
 export async function GET(request: NextRequest) {
   const originalUrl = new URL(request.url);
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const nextPath = searchParams.get('next') ?? '/'; // Default to home if 'next' is not provided
 
   if (token_hash && type) {
-    const supabase = await createClient(); // Added await
+    const supabase = await createClient(); // Corrected: ensure await is used
 
     const { error } = await supabase.auth.verifyOtp({
       type,
