@@ -5,14 +5,12 @@ import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { updateUserPassword } from "../actions";
-import { useToast } from "@/hooks/use-toast";
-import { PassForgeLogo } from "@/components/icons/passforge-logo";
+import { useToast } from "@/hooks";
+import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserClient } from "@/lib/supabase";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -26,7 +24,7 @@ function SubmitButton() {
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = createBrowserClient();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get("email");
@@ -45,7 +43,7 @@ export default function UpdatePasswordPage() {
           description: "You are not authorized to update password. Please try the reset process again.",
           variant: "destructive",
         });
-        router.push('/forgot-password'); // Updated redirect
+        router.push('/forgot-password'); 
       }
       setIsLoadingUser(false);
     });
@@ -58,7 +56,7 @@ export default function UpdatePasswordPage() {
           title: "Success!",
           description: state.message,
         });
-        // router.push('/login'); // User is shown a success message with button to login
+        // User is shown a success message with button to login
       } else {
         toast({
           title: "Error",

@@ -2,19 +2,15 @@
 "use server";
 
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server"; // Updated import
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 const emailSchema = z.string().email({ message: "Invalid email address. Please enter a valid email." });
 const passwordSchema = z
   .string()
-  .min(1, { message: "Password cannot be empty." }) // For login, just needs to not be empty. Min 8 for reset.
+  .min(1, { message: "Password cannot be empty." }) 
   .min(8, { message: "Password must be at least 8 characters long." });
-  // .regex(/[A-Z]/, { message: "Password must contain an uppercase letter." })
-  // .regex(/[a-z]/, { message: "Password must contain a lowercase letter." })
-  // .regex(/[0-9]/, { message: "Password must contain a number." })
-  // .regex(/[^A-Za-z0-9]/, { message: "Password must contain a special character." })
 
 export async function requestPasswordReset(prevState: any, formData: FormData) {
   const email = formData.get("email") as string;
@@ -28,7 +24,7 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = createClient();
+  const supabase = createServerClient();
   const origin = headers().get("origin");
   
   if (!origin) {
@@ -78,7 +74,7 @@ export async function updateUserPassword(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = createClient();
+  const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return {
@@ -102,7 +98,6 @@ export async function updateUserPassword(prevState: any, formData: FormData) {
   };
 }
 
-// New action for signing in
 export async function signInWithPassword(prevState: any, formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -125,7 +120,7 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = createClient();
+  const supabase = createServerClient();
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -135,7 +130,7 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
   if (error) {
     return {
       success: false,
-      message: error.message || "Invalid login credentials.", // More specific error if available
+      message: error.message || "Invalid login credentials.", 
     };
   }
   
@@ -146,7 +141,6 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
     };
   }
 
-  // Do not redirect from server action. Client will handle redirect.
   return {
     success: true,
     message: "Logged in successfully! Redirecting...",

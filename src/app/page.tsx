@@ -1,7 +1,7 @@
 
-"use client"; // Keep if HomepageLayout or its children use client features
+"use client"; 
 
-import { HomepageLayout } from '@/features/homepage/components/homepage-layout';
+import { HomepageLayout } from '@/features/homepage/components';
 
 export default function RootPage() {
   return <HomepageLayout />;

@@ -1,7 +1,7 @@
 
 import Link from 'next/link';
-import { PassForgeLogo } from '@/components/icons/passforge-logo';
-import { Button } from '@/components/ui/button';
+import { PassForgeLogo } from '@/components/icons';
+import { Button } from '@/components/ui';
 
 export function HomepageHeader() {
   return (

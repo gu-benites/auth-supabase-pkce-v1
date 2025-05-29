@@ -1,7 +1,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { ArrowRight } from 'lucide-react';
 
 export function HeroSection() {
@@ -17,7 +17,7 @@ export function HeroSection() {
         </p>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-12">
           <Button size="lg" asChild>
-            <Link href="/">
+            <Link href="/forgot-password"> {/* Updated link to /forgot-password */}
               Reset Your Password
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>

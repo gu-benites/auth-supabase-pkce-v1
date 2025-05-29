@@ -1,8 +1,8 @@
 
 "use client";
 
-import ForgotPasswordPageContent from '@/features/auth/forgot-password/components/forgot-password-page-content';
+import { ForgotPasswordForm } from '@/features/auth/forgot-password/components';
 
 export default function ForgotPasswordPage() {
-  return <ForgotPasswordPageContent />;
+  return <ForgotPasswordForm />;
 }

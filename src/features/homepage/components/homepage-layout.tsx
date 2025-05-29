@@ -1,6 +1,6 @@
 
-import { HomepageHeader } from '@/features/homepage/components/header';
-import { HeroSection } from '@/features/homepage/components/hero-section';
+import { HomepageHeader } from '@/features/homepage/components';
+import { HeroSection } from '@/features/homepage/components';
 
 export function HomepageLayout() {
   return (

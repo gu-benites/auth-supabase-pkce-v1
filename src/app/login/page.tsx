@@ -6,12 +6,10 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
 import { signInWithPassword } from "../actions"; 
-import { useToast } from "@/hooks/use-toast";
-import { PassForgeLogo } from "@/components/icons/passforge-logo";
+import { useToast } from "@/hooks";
+import { PassForgeLogo } from "@/components/icons";
 import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
 
 function SubmitButton() {

@@ -1,9 +1,8 @@
 
 import { type EmailOtpType } from '@supabase/supabase-js';
-import { type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server'; // NextResponse might be needed for complex redirects
 import { redirect } from 'next/navigation';
-
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   const originalUrl = new URL(request.url);
@@ -11,10 +10,10 @@ export async function GET(request: NextRequest) {
 
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
-  const nextPath = searchParams.get('next') ?? '/';
+  const nextPath = searchParams.get('next') ?? '/'; // Default to home if 'next' is not provided
 
   if (token_hash && type) {
-    const supabase = createClient();
+    const supabase = createServerClient();
 
     const { error } = await supabase.auth.verifyOtp({
       type,
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
           paramsToForward.append(key, value);
         }
       });
-
+      
       let redirectUrl = nextPath;
       if (paramsToForward.toString()) {
         redirectUrl = `${nextPath}?${paramsToForward.toString()}`;
