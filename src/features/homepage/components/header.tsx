@@ -6,22 +6,29 @@ import { PassForgeLogo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
 import { Button, Skeleton } from '@/components/ui';
 import { signOutUserAction } from '@/features/auth/actions';
-import { useAuth } from '@/features/auth/hooks'; // Import the useAuth hook
+import { useAuth } from '@/features/auth/hooks'; // Updated import to the new useAuth hook
 
 /**
  * Renders the header for the homepage.
  * Displays PassForge logo, application name, and navigation links.
- * Navigation links change based on the user's authentication status (loading, authenticated, unauthenticated).
+ * Navigation links change based on the user's authentication status (loading, authenticated, unauthenticated),
+ * now using the refactored useAuth hook.
  *
  * @returns {JSX.Element} The homepage header component.
  */
 export function HomepageHeader(): JSX.Element {
-  const { user, profile, isAuthenticated, isLoading, userMetadata } = useAuth();
+  // Use the new useAuth hook from @/features/auth/hooks
+  // This hook combines session data from AuthSessionContext and profile data from TanStack Query.
+  const { user, profile, isAuthenticated, isLoading } = useAuth();
 
-  // Determine display name: profile.username > userMetadata.first_name > user.email prefix
+  // Determine display name: profile.firstName (from detailed profile)
+  // -> user.user_metadata.first_name (fallback from raw user)
+  // -> user.email prefix (another fallback)
   const getDisplayName = () => {
-    if (profile?.username) return profile.username;
-    if (userMetadata?.first_name) return userMetadata.first_name;
+    if (profile?.firstName) return profile.firstName;
+    // Assuming user_metadata might store first_name (adjust if your metadata structure is different)
+    // @ts-ignore
+    if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
     if (user?.email) return user.email.split('@')[0];
     return 'User';
   };
@@ -39,18 +46,23 @@ export function HomepageHeader(): JSX.Element {
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
           {isLoading ? (
-            // Show a spinner while loading
+            // Show a spinner while loading session or profile
             <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-          ) : isAuthenticated ? (
+          ) : isAuthenticated && user ? ( // Check for user object as well
             <>
               <span className="text-sm text-foreground hidden sm:inline">
                 Hi, {displayName}
               </span>
+              {/* Placeholder for profile avatar if available from the detailed profile */}
+              {/* {profile?.avatarUrl && (
+                <img src={profile.avatarUrl} alt="User avatar" className="h-8 w-8 rounded-full" />
+              )} */}
               <form action={signOutUserAction} className="inline-flex">
                 <Button variant="ghost" type="submit">Sign Out</Button>
               </form>
               <Button variant="secondary" asChild>
-                <Link href="/dashboard">Dashboard</Link>
+                {/* TODO: Link to a user profile page once created, e.g., /profile or /dashboard */}
+                <Link href="/profile">Profile</Link> 
               </Button>
             </>
           ) : (
