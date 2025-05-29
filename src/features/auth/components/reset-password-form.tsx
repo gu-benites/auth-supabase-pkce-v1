@@ -6,12 +6,16 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { updateUserPassword } from "@/features/auth/actions"; // Updated import
+import { updateUserPassword } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+/**
+ * A button component that displays a loading spinner while the form action is pending.
+ * @returns {JSX.Element} The submit button.
+ */
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -22,7 +26,17 @@ function SubmitButton() {
   );
 }
 
-export default function ResetPasswordForm() {
+/**
+ * Renders the "Reset Password" form.
+ * Allows users to set a new password after verifying their email.
+ * Pre-fills the email address from a URL query parameter if available.
+ * Uses a Server Action (`updateUserPassword`) to handle password updates.
+ * Displays success or error messages using toasts.
+ * Includes password visibility toggles.
+ *
+ * @returns {JSX.Element} The reset password form component.
+ */
+export default function ResetPasswordForm(): JSX.Element {
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
@@ -56,7 +70,7 @@ export default function ResetPasswordForm() {
           title: "Success!",
           description: state.message,
         });
-        // User is shown a success message with button to login
+        // Form re-renders to show success message (see below)
       } else {
         toast({
           title: "Error",

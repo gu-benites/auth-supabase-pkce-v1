@@ -7,11 +7,15 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
-import { signInWithPassword } from "@/features/auth/actions"; // Updated import
+import { signInWithPassword } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
 
+/**
+ * A button component that displays a loading spinner while the form action is pending.
+ * @returns {JSX.Element} The submit button.
+ */
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -22,7 +26,16 @@ function SubmitButton() {
   );
 }
 
-export default function LoginForm() {
+/**
+ * Renders the login form.
+ * Allows users to sign in with their email and password.
+ * Uses a Server Action (`signInWithPassword`) to handle authentication.
+ * Displays success or error messages using toasts and handles redirection on success.
+ * Includes a password visibility toggle.
+ *
+ * @returns {JSX.Element} The login form component.
+ */
+export default function LoginForm(): JSX.Element {
   const router = useRouter();
   const { toast } = useToast();
   const initialState = { message: null, success: false, errorFields: null };
@@ -34,10 +47,9 @@ export default function LoginForm() {
       if (state.success) {
         toast({
           title: "Success!",
-          description: state.message,
+          description: state.message, // Though on success, redirect happens quickly.
         });
-        // Redirect to the new homepage (root) after successful login
-        router.push('/');
+        // Redirect to the homepage (root) after successful login is handled by the action.
       } else {
         toast({
           title: "Login Failed",

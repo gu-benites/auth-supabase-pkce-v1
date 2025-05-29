@@ -11,20 +11,33 @@ import {
   passwordSchema as commonPasswordSchema,
   firstNameSchema as commonFirstNameSchema,
   lastNameSchema as commonLastNameSchema,
-} from "@/features/auth/schemas"; // Using barrel file for schemas
-import { loginPasswordSchema as commonLoginPasswordSchema } from "@/features/auth/schemas";
+  loginPasswordSchema,
+} from "@/features/auth/schemas";
 
-
+/**
+ * Represents the state returned by authentication server actions.
+ * @property {boolean} success - Indicates if the action was successful.
+ * @property {string | null} message - A message describing the result of the action.
+ * @property {Record<string, string> | null} [errorFields] - Optional. A record of field-specific error messages.
+ */
 interface AuthActionState {
   success: boolean;
   message: string | null;
   errorFields?: Record<string, string> | null;
 }
 
+/**
+ * Server Action to request a password reset link for a user.
+ * Validates the email, then calls the authentication service to send a reset link.
+ *
+ * @param {AuthActionState} prevState - The previous state of the form action.
+ * @param {FormData} formData - The form data submitted by the user, expected to contain an 'email'.
+ * @returns {Promise<AuthActionState>} The new state indicating success or failure, with messages.
+ */
 export async function requestPasswordReset(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = formData.get("email") as string;
 
-  const validationResult = commonEmailSchema.safeParse(email); // Use commonEmailSchema
+  const validationResult = commonEmailSchema.safeParse(email);
   if (!validationResult.success) {
     return {
       success: false,
@@ -57,6 +70,14 @@ export async function requestPasswordReset(prevState: AuthActionState, formData:
   };
 }
 
+/**
+ * Server Action to update a user's password after they've confirmed via email link.
+ * Validates the new password and confirmation, then calls the authentication service.
+ *
+ * @param {AuthActionState} prevState - The previous state of the form action.
+ * @param {FormData} formData - The form data, expected to contain 'password' and 'confirmPassword'.
+ * @returns {Promise<AuthActionState>} The new state indicating success or failure.
+ */
 export async function updateUserPassword(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
@@ -69,7 +90,7 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
     };
   }
 
-  const passwordValidation = commonPasswordSchema.safeParse(password); // Use commonPasswordSchema
+  const passwordValidation = commonPasswordSchema.safeParse(password);
   if (!passwordValidation.success) {
     return {
       success: false,
@@ -97,11 +118,19 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
   };
 }
 
-export async function signInWithPassword(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+/**
+ * Server Action to sign in a user with their email and password.
+ * Validates credentials, calls the authentication service, and redirects on success.
+ *
+ * @param {AuthActionState} prevState - The previous state of the form action.
+ * @param {FormData} formData - The form data, expected to contain 'email' and 'password'.
+ * @returns {Promise<AuthActionState | void>} The new state on failure, or void on successful redirect.
+ */
+export async function signInWithPassword(prevState: AuthActionState, formData: FormData): Promise<AuthActionState | void> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  const emailValidation = commonEmailSchema.safeParse(email); // Use commonEmailSchema
+  const emailValidation = commonEmailSchema.safeParse(email);
   if (!emailValidation.success) {
     return {
       success: false,
@@ -110,7 +139,7 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
     };
   }
 
-  const passwordValidation = commonLoginPasswordSchema.safeParse(password);
+  const passwordValidation = loginPasswordSchema.safeParse(password);
    if (!passwordValidation.success) {
     return {
       success: false,
@@ -135,12 +164,18 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
     };
   }
   
-  // Client-side navigation should handle redirection after success,
-  // but if middleware protects /, this effectively redirects to a protected page
-  // or the specified page after successful login (e.g., /dashboard)
-  redirect('/'); // Redirect to homepage after successful login
+  redirect('/');
 }
 
+/**
+ * Server Action to register a new user.
+ * Validates all input fields, then calls the authentication service to create the user
+ * and send a confirmation email. User metadata (first name, last name) is included.
+ *
+ * @param {AuthActionState} prevState - The previous state of the form action.
+ * @param {FormData} formData - The form data, including 'firstName', 'lastName', 'email', 'password', 'confirmPassword'.
+ * @returns {Promise<AuthActionState>} The new state indicating success or failure.
+ */
 export async function signUpNewUser(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
@@ -161,12 +196,12 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
     errorFields.lastName = lastNameValidation.error.errors.map((e) => e.message).join(", ");
   }
 
-  const emailValidation = commonEmailSchema.safeParse(email); // Use commonEmailSchema
+  const emailValidation = commonEmailSchema.safeParse(email);
   if (!emailValidation.success) {
     errorFields.email = emailValidation.error.errors.map((e) => e.message).join(", ");
   }
 
-  const passwordValidation = commonPasswordSchema.safeParse(password); // Use commonPasswordSchema
+  const passwordValidation = commonPasswordSchema.safeParse(password);
   if (!passwordValidation.success) {
     errorFields.password = passwordValidation.error.errors.map((e) => e.message).join(", ");
   }
@@ -203,8 +238,8 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
     {
       emailRedirectTo,
       data: {
-        first_name: firstName,
-        last_name: lastName,
+        first_name: firstName, // Stored in user_metadata
+        last_name: lastName,   // Stored in user_metadata
       }
     }
   );
@@ -231,16 +266,17 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
   };
 }
 
-
-export async function signOutUserAction() {
+/**
+ * Server Action to sign out the currently authenticated user.
+ * Calls the authentication service and redirects to the login page.
+ *
+ * @returns {Promise<void>} Void on successful redirect.
+ */
+export async function signOutUserAction(): Promise<void> {
   const { error } = await authService.signOutWithSupabase();
 
   if (error) {
-    // This error might not be easily displayable if redirect happens immediately.
-    // Consider logging it or a more robust client-side error display if redirect fails.
     console.error("Sign out error:", error.message);
-    // For now, we will attempt to redirect even if there's an error during sign out,
-    // as the session might be invalid anyway.
   }
-  redirect('/login'); // Redirect to login page after sign out
+  redirect('/login');
 }

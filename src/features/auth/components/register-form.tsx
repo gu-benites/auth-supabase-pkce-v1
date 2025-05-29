@@ -6,12 +6,16 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
-import { signUpNewUser } from "@/features/auth/actions"; // Updated import
+import { signUpNewUser } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { UserPlus, Mail, KeyRound, Loader2, Eye, EyeOff, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+/**
+ * A button component that displays a loading spinner while the form action is pending.
+ * @returns {JSX.Element} The submit button.
+ */
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -22,7 +26,17 @@ function SubmitButton() {
   );
 }
 
-export function RegisterForm() {
+/**
+ * Renders the registration form.
+ * Allows new users to sign up with their first name, last name, email, and password.
+ * Uses a Server Action (`signUpNewUser`) to handle account creation.
+ * Displays success or error messages using toasts.
+ * Includes password visibility toggles for password and confirm password fields.
+ * On successful sign-up initiation, displays a message prompting email confirmation.
+ *
+ * @returns {JSX.Element} The registration form component.
+ */
+export function RegisterForm(): JSX.Element {
   const router = useRouter();
   const { toast } = useToast();
   const initialState = { message: null, success: false, errorFields: null };
@@ -37,8 +51,7 @@ export function RegisterForm() {
           title: "Account Created!",
           description: state.message,
         });
-        // No automatic redirect here, user needs to confirm email.
-        // Form will re-render to show success message.
+        // Form re-renders to show success message (see below)
       } else {
         toast({
           title: "Registration Failed",

@@ -7,11 +7,15 @@ import { useFormStatus } from "react-dom";
 import { Input } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { requestPasswordReset } from "@/features/auth/actions"; // Updated import
+import { requestPasswordReset } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { Mail, Loader2 } from "lucide-react";
 
+/**
+ * A button component that displays a loading spinner while the form action is pending.
+ * @returns {JSX.Element} The submit button.
+ */
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -22,7 +26,15 @@ function SubmitButton() {
   );
 }
 
-export default function ForgotPasswordForm() {
+/**
+ * Renders the "Forgot Password" form.
+ * Allows users to enter their email address to request a password reset link.
+ * Uses a Server Action (`requestPasswordReset`) to handle the submission.
+ * Displays success or error messages using toasts.
+ *
+ * @returns {JSX.Element} The forgot password form component.
+ */
+export default function ForgotPasswordForm(): JSX.Element {
   const { toast } = useToast();
   const initialState = { message: null, success: false, errorFields: null };
   const [state, formAction] = useActionState(requestPasswordReset, initialState);
