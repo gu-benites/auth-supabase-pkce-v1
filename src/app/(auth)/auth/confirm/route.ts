@@ -1,10 +1,25 @@
 
 import { type EmailOtpType } from '@supabase/supabase-js';
-import { type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server'; // NextResponse might be needed for complex redirects
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server'; // Corrected: direct import from server
+import { createClient } from '@/lib/supabase/server';
 
-export async function GET(request: NextRequest) {
+/**
+ * Handles GET requests to the /auth/confirm endpoint.
+ * This route is responsible for verifying One-Time Passwords (OTPs) sent via email,
+ * typically for email confirmation or password recovery.
+ *
+ * It expects 'token_hash' and 'type' query parameters from the confirmation link.
+ * An optional 'next' query parameter can specify where to redirect the user upon successful verification.
+ * Additional query parameters (e.g., 'email' for password reset context) are forwarded to the 'next' URL.
+ *
+ * @param {NextRequest} request - The incoming Next.js request object, containing URL and query parameters.
+ * @returns {Promise<NextResponse>} A promise that resolves to a NextResponse, typically a redirect
+ *                                 to the 'next' path on success or to an error page on failure.
+ *                                 Note: `redirect()` from `next/navigation` throws a special error
+ *                                 that Next.js handles to perform the redirection.
+ */
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const originalUrl = new URL(request.url);
   const searchParams = originalUrl.searchParams;
 
@@ -13,7 +28,7 @@ export async function GET(request: NextRequest) {
   const nextPath = searchParams.get('next') ?? '/'; // Default to home if 'next' is not provided
 
   if (token_hash && type) {
-    const supabase = await createClient(); // Corrected: ensure await is used
+    const supabase = await createClient();
 
     const { error } = await supabase.auth.verifyOtp({
       type,
@@ -34,6 +49,7 @@ export async function GET(request: NextRequest) {
       if (paramsToForward.toString()) {
         redirectUrl = `${nextPath}?${paramsToForward.toString()}`;
       }
+      // Supabase recommends redirecting from the server so that cookies are set correctly.
       return redirect(redirectUrl);
     }
   }
