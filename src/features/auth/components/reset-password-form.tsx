@@ -10,7 +10,7 @@ import { updateUserPassword } from "@/app/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { createBrowserClient } from "@/lib/supabase";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

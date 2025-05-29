@@ -2,7 +2,7 @@
 "use server";
 
 import { z } from "zod";
-import { createServerClient } from "@/lib/supabase/"; // Updated import
+import { createClient } from "@/lib/supabase/server"; 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -24,7 +24,7 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = createServerClient();
+  const supabase = await createClient(); // Added await
   const origin = headers().get("origin");
   
   if (!origin) {
@@ -74,7 +74,7 @@ export async function updateUserPassword(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = createServerClient();
+  const supabase = await createClient(); // Added await
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return {
@@ -120,7 +120,7 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = createServerClient();
+  const supabase = await createClient(); // Added await
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -141,8 +141,10 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
     };
   }
 
+  // redirect("/some-protected-route"); // Example redirect, adjust as needed
   return {
     success: true,
     message: "Logged in successfully! Redirecting...",
   };
 }
+
