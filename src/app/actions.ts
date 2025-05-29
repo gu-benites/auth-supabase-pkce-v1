@@ -2,7 +2,7 @@
 "use server";
 
 import { z } from "zod";
-import { createServerClient } from "@/lib/supabase/server"; // Updated import
+import { createServerClient } from "@/lib/supabase/"; // Updated import
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
