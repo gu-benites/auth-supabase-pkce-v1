@@ -1,6 +1,3 @@
-
-"use server";
-
 import { z } from "zod";
 import { emailSchema } from "./auth.common.schemas";
 
