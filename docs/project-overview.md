@@ -1,3 +1,4 @@
+
 # Project Overview: Next.js & Supabase Authentication Template (v2)
 
 ## Introduction
@@ -18,7 +19,8 @@ The goal is to offer a clear guide for understanding, maintaining, and extending
 
 ## I. Authentication Flow Details
 
-This section describes the step-by-step process for each authentication-related user action. All form submissions are handled by **Server Actions** located in `src/features/auth/mutations/auth.mutations.ts`.
+This section describes the step-by-step process for each authentication-related user action.
+Form submissions are handled by **Server Actions** located in `src/features/auth/actions/auth.actions.ts`. These Server Actions then call **Service Functions** in `src/features/auth/services/auth.service.ts` which perform the direct interactions with Supabase.
 
 ### 1. User Registration (`/(auth)/register/page.tsx`)
 
@@ -26,12 +28,14 @@ This section describes the step-by-step process for each authentication-related 
     - User provides: First Name, Last Name, Email, Password, and Confirm Password.
     - Client-side interactivity (e.g., password visibility toggle) is handled here.
     - The form uses the `useActionState` hook to manage the submission state and feedback from the Server Action.
-- **Form Submission & Server Action:**
+- **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - The form submission triggers the `signUpNewUser` Server Action.
-- **Server-Side Validation (`src/features/auth/mutations/auth.mutations.ts`):**
+- **Server-Side Validation (within Server Action):**
     - Input data is validated using Zod schemas from `src/features/auth/schemas/register.schema.ts` and `src/features/auth/schemas/auth.common.schemas.ts`.
-- **Supabase Interaction:**
-    - If validation passes, `supabase.auth.signUp()` is called.
+- **Service Call (`src/features/auth/services/auth.service.ts`):**
+    - If validation passes, the Server Action calls the `signUpWithSupabase` service function.
+- **Supabase Interaction (within Service):**
+    - `supabase.auth.signUp()` is called.
     - `firstName` and `lastName` are passed in the `options.data` object (as `first_name` and `last_name`), which Supabase stores in the `auth.users` table's `user_metadata` JSONB column.
     - `options.emailRedirectTo` is dynamically configured to `[YOUR_SITE_URL]/auth/confirm?next=/login`. This URL is where the user will be sent after clicking the confirmation link in their email. The `next=/login` parameter tells the confirmation route where to redirect the user after successful verification.
 - **User Feedback:**
@@ -51,11 +55,13 @@ This section describes the step-by-step process for each authentication-related 
 
 - **User Interface (`src/features/auth/components/login-form.tsx` - Client Component):**
     - User provides Email and Password.
-- **Form Submission & Server Action:**
+- **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `signInWithPassword` Server Action.
-- **Server-Side Validation:**
+- **Server-Side Validation (within Server Action):**
     - Email and password validated using Zod schemas from `src/features/auth/schemas/login.schema.ts`.
-- **Supabase Interaction:**
+- **Service Call (`src/features/auth/services/auth.service.ts`):**
+    - If validation passes, the Server Action calls the `signInWithPasswordWithSupabase` service function.
+- **Supabase Interaction (within Service):**
     - `supabase.auth.signInWithPassword()` is called to authenticate the user.
 - **Session Management & Redirection:**
     - **Success:** Supabase returns a session. The `src/middleware.ts` plays a crucial role in managing and refreshing this session cookie. The user is then redirected to the homepage (`/`).
@@ -65,11 +71,13 @@ This section describes the step-by-step process for each authentication-related 
 
 - **User Interface (`src/features/auth/components/forgot-password-form.tsx` - Client Component):**
     - User enters their registered email address.
-- **Form Submission & Server Action:**
+- **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `requestPasswordReset` Server Action.
-- **Server-Side Validation:**
+- **Server-Side Validation (within Server Action):**
     - Email validated using Zod schema from `src/features/auth/schemas/forgot-password.schema.ts`.
-- **Supabase Interaction:**
+- **Service Call (`src/features/auth/services/auth.service.ts`):**
+    - If validation passes, the Server Action calls the `resetPasswordForEmailWithSupabase` service function.
+- **Supabase Interaction (within Service):**
     - `supabase.auth.resetPasswordForEmail()` is called.
     - `options.emailRedirectTo` is configured to `[YOUR_SITE_URL]/auth/confirm?next=/reset-password&email={USER_EMAIL}`. The `email` parameter is included to help password managers and pre-fill the email field on the reset password page.
 - **User Feedback:**
@@ -82,11 +90,13 @@ This section describes the step-by-step process for each authentication-related 
     - The email field is pre-filled (from URL query parameter) and disabled, providing context for password managers.
     - User enters their New Password and confirms it.
     - An initial check is performed to ensure a user session exists (meaning they've successfully come from the email link). If not, they are redirected to `/forgot-password`.
-- **Form Submission & Server Action:**
+- **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `updateUserPassword` Server Action.
-- **Server-Side Validation:**
+- **Server-Side Validation (within Server Action):**
     - New password and confirmation are validated (must match, meet strength criteria) using Zod schemas from `src/features/auth/schemas/update-password.schema.ts`.
-- **Supabase Interaction:**
+- **Service Call (`src/features/auth/services/auth.service.ts`):**
+    - If validation passes, the Server Action calls the `updateUserWithSupabase` service function.
+- **Supabase Interaction (within Service):**
     - `supabase.auth.updateUser({ password })` is called. This action updates the password for the currently authenticated user (whose session was established by the OTP verification).
 - **User Feedback:**
     - On success, a confirmation message is shown, and the user is presented with a button to navigate to the login page.
@@ -116,14 +126,15 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 
 ### `'use server'` Directive
 - **Purpose:** Marks functions exported from a file as **Server Actions** or indicates that a file exports Server Actions. These functions are guaranteed to execute only on the server.
-- **Location:** Placed at the very top of a `.ts` or `.js` file.
+- **Location:** Placed at the very top of a `.ts` or `.js` file that exports Server Actions.
 - **Characteristics:**
     - Can be called from Client Components (typically via form `action` prop or by directly invoking the imported function).
     - Can securely access server-side resources: databases (Supabase), internal APIs, environment variables.
     - Ideal for data mutations, form handling, and any operation requiring secure server-side execution.
 - **In this project:**
-    - `src/features/auth/mutations/auth.mutations.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, etc.). Each of these functions handles form data, interacts with Supabase, and returns a state object.
-    - `src/features/auth/queries/auth.queries.ts`: Placeholder for future auth-related data-fetching Server Actions.
+    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, etc.). Each of these functions handles form data, calls services, and returns a state object. This file is marked with `'use server';`.
+    - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. While not directly called from the client, this file is also marked with `'use server';` as it's part of the server-side execution boundary initiated by Server Actions and uses the server Supabase client.
+    - `src/features/auth/queries/auth.queries.ts`: Placeholder for future auth-related data-fetching Server Actions. Marked with `'use server';`.
     - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
 
 ### Route Handlers (`route.ts`)
@@ -136,10 +147,12 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - `src/app/(auth)/auth/confirm/route.ts`: Handles the GET request for email confirmation links.
 
 ### Role of Middleware (`src/middleware.ts`)
-- The `middleware.ts` file is crucial for Supabase session management. It runs on the server before a request is processed for matching paths.
-- Its primary role here is to:
-    - Initialize the Supabase server client with cookies from the request.
-    - Call `supabase.auth.getSession()` to refresh the user's session token if it's expired and update the cookies in the response.
+- The `middleware.ts` file is crucial for Supabase session management and route protection. It runs on the server before a request is processed for matching paths.
+- It calls `updateSession` from `src/features/auth/utils/middleware.utils.ts`.
+- The `updateSession` utility:
+    - Initializes the Supabase server client with cookies from the request.
+    - Calls `supabase.auth.getUser()` to refresh the user's session token if it's expired and update the cookies in the response. It also gets the current user.
+    - Implements route protection by redirecting unauthenticated users from non-public paths to `/login`.
 - This ensures that Server Components, Route Handlers, and Server Actions have access to an up-to-date user session.
 
 ## III. Project Structure Highlights
@@ -152,10 +165,15 @@ The project follows a feature-based organization within the `src` directory.
 - **`/src/features/`**:
     - **`auth/`**:
         - `components/`: Client Components for authentication forms.
-        - `mutations/`: Server Actions for auth data modification.
+        - `actions/`: Server Actions for auth data modification and flow control.
+            - `auth.actions.ts`
+        - `services/`: Contains direct Supabase interaction logic.
+            - `auth.service.ts`
         - `queries/`: (Placeholder) Server Actions for auth data fetching.
         - `schemas/`: Zod validation schemas.
         - `hooks/`: (Placeholder) Custom React hooks specific to authentication.
+        - `utils/`: Utility functions specific to auth features.
+            - `middleware.utils.ts`
     - **`homepage/`**: Components related to the main homepage.
 - **`/src/components/`**:
     - `ui/`: Reusable ShadCN UI components.
@@ -168,7 +186,7 @@ The project follows a feature-based organization within the `src` directory.
 - **`/src/hooks/`**:
     - General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
 - **`/src/middleware.ts`**:
-    - Next.js middleware for Supabase session management.
+    - Next.js middleware entry point.
 
 ## IV. Adapting for Other Projects (Checklist)
 
@@ -178,20 +196,19 @@ The project follows a feature-based organization within the `src` directory.
     - [ ] Customize `src/app/globals.css` (ShadCN theme) or replace UI components.
     - [ ] Update `PassForgeLogo` or branding elements.
 3.  **Redirection URLs:**
-    - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/mutations/auth.mutations.ts`.
+    - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts` (passed to services).
     - [ ] Adjust the `next` query parameter logic in `src/app/(auth)/auth/confirm/route.ts` if post-confirmation redirect paths differ.
-    - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword`).
+    - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action).
+    - [ ] Review public paths in `src/features/auth/utils/middleware.utils.ts` for route protection.
 4.  **Error Handling Pages:**
     - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth/auth-code-error/page.tsx`).
 5.  **Protected Routes Strategy:**
-    - [ ] Implement route protection. Common approaches:
-        - Modifying `src/middleware.ts` to check for a user session and redirect if absent for protected paths.
-        - Checking `await supabase.auth.getUser()` in the `layout.tsx` of a protected route group and redirecting if no user.
+    - [ ] The `src/features/auth/utils/middleware.utils.ts` already implements a basic route protection strategy. Adjust the `publicPaths` array as needed.
 6.  **Additional User Metadata:**
     - [ ] If collecting more data at registration:
         - Add fields to `src/features/auth/components/register-form.tsx`.
         - Update Zod schemas in `src/features/auth/schemas/register.schema.ts`.
-        - Modify `signUpNewUser` in `src/features/auth/mutations/auth.mutations.ts` to include this data in `options.data` (which becomes `user_metadata`).
+        - Modify `signUpNewUser` Server Action in `src/features/auth/actions/auth.actions.ts` to pass data to the `signUpWithSupabase` service, which includes it in `options.data` (which becomes `user_metadata`).
 7.  **Database Schema (RLS):**
     - [ ] Configure Row Level Security (RLS) policies in your Supabase database, especially if you add tables for user profiles or other user-specific data.
 8.  **Review Site URL:**
@@ -199,5 +216,7 @@ The project follows a feature-based organization within the `src` directory.
 
 ## Conclusion
 
-This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase. By understanding the flow, the roles of `'use client'` and `'use server'`, and the project's organization, developers can confidently build upon and adapt this foundation.
+This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
 The accompanying `integrating-state-and-data-fetching.md` guide provides next steps for managing user state globally and fetching user-specific data.
+
+    
