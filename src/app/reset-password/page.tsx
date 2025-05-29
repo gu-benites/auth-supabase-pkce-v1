@@ -2,16 +2,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useActionState } from "react"; 
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateUserPassword } from "../actions";
 import { useToast } from "@/hooks/use-toast";
 import { PassForgeLogo } from "@/components/icons/passforge-logo";
-import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react"; // Added Mail
+import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 function SubmitButton() {
@@ -45,7 +45,7 @@ export default function UpdatePasswordPage() {
           description: "You are not authorized to update password. Please try the reset process again.",
           variant: "destructive",
         });
-        router.push('/');
+        router.push('/forgot-password'); // Updated redirect
       }
       setIsLoadingUser(false);
     });
@@ -58,7 +58,7 @@ export default function UpdatePasswordPage() {
           title: "Success!",
           description: state.message,
         });
-        // router.push('/login'); 
+        // router.push('/login'); // User is shown a success message with button to login
       } else {
         toast({
           title: "Error",
@@ -95,6 +95,9 @@ export default function UpdatePasswordPage() {
             </Button>
           </CardContent>
         </Card>
+         <footer className="mt-8 text-center text-sm text-muted-foreground">
+          &copy; {new Date().getFullYear()} PassForge. All rights reserved.
+        </footer>
       </main>
      )
   }
@@ -123,7 +126,7 @@ export default function UpdatePasswordPage() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="email"
-                    name="email" 
+                    name="email"
                     type="email"
                     value={emailFromQuery}
                     disabled
@@ -150,6 +153,7 @@ export default function UpdatePasswordPage() {
                   required
                   minLength={8}
                   className="pl-10 pr-10 focus:ring-accent"
+                  aria-describedby={state?.errorFields?.password ? "password-error" : undefined}
                 />
                 <Button
                   type="button"
@@ -162,7 +166,7 @@ export default function UpdatePasswordPage() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
-               {state?.errorFields?.password && <p className="text-sm text-destructive">{state.errorFields.password}</p>}
+               {state?.errorFields?.password && <p id="password-error" className="text-sm text-destructive">{state.errorFields.password}</p>}
             </div>
             <div className="space-y-2">
               <label
@@ -181,6 +185,7 @@ export default function UpdatePasswordPage() {
                   required
                   minLength={8}
                   className="pl-10 pr-10 focus:ring-accent"
+                  aria-describedby={state?.errorFields?.confirmPassword ? "confirmPassword-error" : undefined}
                 />
                  <Button
                   type="button"
@@ -193,7 +198,7 @@ export default function UpdatePasswordPage() {
                   {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
-              {state?.errorFields?.confirmPassword && <p className="text-sm text-destructive">{state.errorFields.confirmPassword}</p>}
+              {state?.errorFields?.confirmPassword && <p id="confirmPassword-error" className="text-sm text-destructive">{state.errorFields.confirmPassword}</p>}
             </div>
             <SubmitButton />
           </form>

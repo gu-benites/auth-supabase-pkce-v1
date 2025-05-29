@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { signInWithPassword } from "../actions"; // We'll create this action next
+import { signInWithPassword } from "../actions"; 
 import { useToast } from "@/hooks/use-toast";
 import { PassForgeLogo } from "@/components/icons/passforge-logo";
 import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
@@ -38,9 +38,8 @@ export default function LoginPage() {
           title: "Success!",
           description: state.message,
         });
-        // Redirect to a dashboard or home page after successful login
-        // For now, redirecting to the main page (password reset request page)
-        router.push('/');
+        // Redirect to the new homepage (root) after successful login
+        router.push('/'); 
       } else {
         toast({
           title: "Login Failed",
@@ -79,9 +78,10 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   required
                   className="pl-10 focus:ring-accent"
+                  aria-describedby={state?.errorFields?.email ? "email-error" : undefined}
                 />
               </div>
-               {state?.errorFields?.email && <p className="text-sm text-destructive">{state.errorFields.email}</p>}
+               {state?.errorFields?.email && <p id="email-error" className="text-sm text-destructive">{state.errorFields.email}</p>}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -91,7 +91,7 @@ export default function LoginPage() {
                 >
                   Password
                 </label>
-                <Link href="/" className="text-sm text-primary hover:underline">
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
                   Forgot Password?
                 </Link>
               </div>
@@ -104,6 +104,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                   className="pl-10 pr-10 focus:ring-accent"
+                  aria-describedby={state?.errorFields?.password ? "password-error" : undefined}
                 />
                 <Button
                   type="button"
@@ -116,7 +117,7 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
-              {state?.errorFields?.password && <p className="text-sm text-destructive">{state.errorFields.password}</p>}
+              {state?.errorFields?.password && <p id="password-error" className="text-sm text-destructive">{state.errorFields.password}</p>}
             </div>
             <SubmitButton />
           </form>
