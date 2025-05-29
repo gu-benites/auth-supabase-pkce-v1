@@ -24,7 +24,7 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = await createClient(); // Added await
+  const supabase = await createClient();
   const origin = headers().get("origin");
   
   if (!origin) {
@@ -74,7 +74,7 @@ export async function updateUserPassword(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = await createClient(); // Added await
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return {
@@ -120,7 +120,7 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
     };
   }
 
-  const supabase = await createClient(); // Added await
+  const supabase = await createClient();
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -148,3 +148,75 @@ export async function signInWithPassword(prevState: any, formData: FormData) {
   };
 }
 
+export async function signUpNewUser(prevState: any, formData: FormData) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  const emailValidation = emailSchema.safeParse(email);
+  if (!emailValidation.success) {
+    return {
+      success: false,
+      message: emailValidation.error.errors.map((e) => e.message).join(", "),
+      errorFields: { email: emailValidation.error.errors.map((e) => e.message).join(", ") }
+    };
+  }
+
+  const passwordValidation = passwordSchema.safeParse(password);
+  if (!passwordValidation.success) {
+    return {
+      success: false,
+      message: passwordValidation.error.errors.map((e) => e.message).join(", "),
+      errorFields: { password: passwordValidation.error.errors.map((e) => e.message).join(", ") }
+    };
+  }
+
+  if (password !== confirmPassword) {
+    return {
+      success: false,
+      message: "Passwords do not match.",
+      errorFields: { confirmPassword: "Passwords do not match." }
+    };
+  }
+
+  const supabase = await createClient();
+  const origin = headers().get("origin");
+
+  if (!origin) {
+    return {
+      success: false,
+      message: "Could not determine application origin. Sign up failed.",
+    };
+  }
+
+  const emailRedirectTo = `${origin}/auth/confirm?next=/login`; // Redirect to login after email confirmation
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo,
+    },
+  });
+
+  if (error) {
+    return {
+      success: false,
+      message: `Sign up failed: ${error.message}`,
+    };
+  }
+
+  if (!data.user && !data.session) {
+     return {
+      success: false,
+      message: "Sign up successful, but no user data returned. Please check your email to confirm.",
+    };
+  }
+  
+  // For email confirmation flow, Supabase sends a confirmation email.
+  // The user is not automatically logged in.
+  return {
+    success: true,
+    message: "Sign up successful! Please check your email to confirm your account before logging in.",
+  };
+}
