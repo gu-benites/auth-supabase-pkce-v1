@@ -1,16 +1,17 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useActionState } from "react"; 
-import { useFormStatus } from "react-dom"; // Corrected import
-import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
+import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateUserPassword } from "../actions";
 import { useToast } from "@/hooks/use-toast";
 import { PassForgeLogo } from "@/components/icons/passforge-logo";
-import { KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react"; // Added Mail
 import { createClient } from "@/lib/supabase/client";
 
 function SubmitButton() {
@@ -27,14 +28,16 @@ export default function UpdatePasswordPage() {
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
-  const initialState = { message: null, success: false };
+  const searchParams = useSearchParams();
+  const emailFromQuery = searchParams.get("email");
+
+  const initialState = { message: null, success: false, errorFields: null };
   const [state, formAction] = useActionState(updateUserPassword, initialState);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated (session should be active after /auth/confirm)
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
         toast({
@@ -55,9 +58,7 @@ export default function UpdatePasswordPage() {
           title: "Success!",
           description: state.message,
         });
-        // Optionally sign the user out after password update for security
-        // await supabase.auth.signOut();
-        // router.push('/login'); // or your login page
+        // router.push('/login'); 
       } else {
         toast({
           title: "Error",
@@ -66,7 +67,7 @@ export default function UpdatePasswordPage() {
         });
       }
     }
-  }, [state, toast, router, supabase]);
+  }, [state, toast, router]);
 
   if (isLoadingUser) {
     return (
@@ -89,8 +90,8 @@ export default function UpdatePasswordPage() {
             <CardDescription>{state.message}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push('/')} className="w-full">
-              Go to Homepage
+            <Button onClick={() => router.push('/login')} className="w-full">
+              Go to Login
             </Button>
           </CardContent>
         </Card>
@@ -110,6 +111,28 @@ export default function UpdatePasswordPage() {
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-6">
+            {emailFromQuery && (
+              <div className="space-y-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email" 
+                    type="email"
+                    value={emailFromQuery}
+                    disabled
+                    readOnly
+                    className="pl-10 focus:ring-accent bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <label
                 htmlFor="password"
@@ -118,6 +141,7 @@ export default function UpdatePasswordPage() {
                 New Password
               </label>
               <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="password"
                   name="password"
@@ -125,7 +149,7 @@ export default function UpdatePasswordPage() {
                   placeholder="••••••••"
                   required
                   minLength={8}
-                  className="pr-10 focus:ring-accent"
+                  className="pl-10 pr-10 focus:ring-accent"
                 />
                 <Button
                   type="button"
@@ -138,6 +162,7 @@ export default function UpdatePasswordPage() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
+               {state?.errorFields?.password && <p className="text-sm text-destructive">{state.errorFields.password}</p>}
             </div>
             <div className="space-y-2">
               <label
@@ -147,6 +172,7 @@ export default function UpdatePasswordPage() {
                 Confirm New Password
               </label>
               <div className="relative">
+                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -154,7 +180,7 @@ export default function UpdatePasswordPage() {
                   placeholder="••••••••"
                   required
                   minLength={8}
-                  className="pr-10 focus:ring-accent"
+                  className="pl-10 pr-10 focus:ring-accent"
                 />
                  <Button
                   type="button"
@@ -167,6 +193,7 @@ export default function UpdatePasswordPage() {
                   {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </Button>
               </div>
+              {state?.errorFields?.confirmPassword && <p className="text-sm text-destructive">{state.errorFields.confirmPassword}</p>}
             </div>
             <SubmitButton />
           </form>
