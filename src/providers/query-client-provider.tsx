@@ -2,7 +2,7 @@
 'use client';
 
 import { QueryClient, QueryClientProvider as TanstackQueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+// ReactQueryDevtools import removed from here
 import React, { type ReactNode } from 'react';
 
 /**
@@ -10,7 +10,6 @@ import React, { type ReactNode } from 'react';
  * This component initializes a QueryClient and wraps its children with QueryClientProvider.
  * It's crucial for enabling client-side data fetching, caching, and synchronization capabilities
  * provided by TanStack Query.
- * Includes ReactQueryDevtools for development.
  *
  * @param {object} props - The component's props.
  * @param {ReactNode} props.children - The child components to render.
@@ -29,7 +28,7 @@ export default function QueryClientProvider({ children }: { children: ReactNode 
   return (
     <TanstackQueryClientProvider client={queryClient}>
       {children}
-      {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+      {/* ReactQueryDevtools rendering removed from here */}
     </TanstackQueryClientProvider>
   );
 }

@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui";
-// PostHog imports removed
-import { AuthSessionProvider, QueryClientProvider } from '@/providers'; // PHProvider removed
+import { AuthSessionProvider, QueryClientProvider } from '@/providers';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Import devtools
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -39,13 +39,12 @@ export default function RootLayout({
 }>): JSX.Element {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/* PHProvider removed */}
       <QueryClientProvider>
         <AuthSessionProvider>
           <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-            {/* DynamicPostHogPageview removed */}
             {children}
             <Toaster />
+            {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
           </body>
         </AuthSessionProvider>
       </QueryClientProvider>
