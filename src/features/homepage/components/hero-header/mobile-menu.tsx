@@ -8,10 +8,10 @@ import type { NavItem } from '../../types';
 import NavLink from './nav-link';
 import DropdownItem from './dropdown-item'; 
 import { ChevronDownIcon as ChevronDownIconImported } from './icons'; 
-import { useAuth } from '@/features/auth/hooks/use-auth'; // Use our project's useAuth hook
-import { signOutUserAction } from '@/features/auth/actions'; // Import the server action for sign out
+import { useAuth } from '@/features/auth/hooks';
+import { signOutUserAction } from '@/features/auth/actions';
 import { cn } from '@/lib/utils';
-import { Button, Separator } from '@/components/ui'; // Import Button
+import { Button, Separator } from '@/components/ui';
 import { Loader2 } from 'lucide-react';
 
 interface MobileMenuProps {
@@ -20,6 +20,18 @@ interface MobileMenuProps {
   onClose: () => void;
 }
 
+/**
+ * Renders the mobile navigation menu.
+ * This menu is displayed on smaller screens and provides access to navigation links
+ * and authentication actions (login, register, profile, logout).
+ * It uses Framer Motion for animations and integrates with the `useAuth` hook for auth state.
+ *
+ * @param {MobileMenuProps} props - The component's props.
+ * @param {boolean} props.isOpen - Whether the mobile menu is currently open.
+ * @param {NavItem[]} props.items - Array of general navigation items.
+ * @param {() => void} props.onClose - Function to call when the menu should be closed.
+ * @returns {JSX.Element | null} The mobile menu component or null if not open.
+ */
 const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
   const mobileMenuVariants = {
     hidden: { opacity: 0, y: -20 },
@@ -27,7 +39,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
     exit: { opacity: 0, y: -20, transition: { duration: 0.15, ease: "easeIn" } }
   };
 
-  // Use our project's useAuth hook
   const { isAuthenticated, isLoading } = useAuth();
 
 
@@ -94,13 +105,13 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
             ) : (
               <>
                 <Button variant="ghost" asChild size="sm" className="w-full my-1" onClick={onClose}>
-                    <Link href="/auth/forgot-password">Request Reset</Link>
+                    <Link href="/forgot-password">Request Reset</Link>
                 </Button>
                 <Button variant="ghost" asChild size="sm" className="w-full my-1" onClick={onClose}>
-                  <Link href="/auth/login">Login</Link>
+                  <Link href="/login">Login</Link>
                 </Button>
                 <Button variant="default" asChild size="sm" className="w-full my-1" onClick={onClose}>
-                  <Link href="/auth/register">Sign Up</Link>
+                  <Link href="/register">Sign Up</Link>
                 </Button>
               </>
             )}
