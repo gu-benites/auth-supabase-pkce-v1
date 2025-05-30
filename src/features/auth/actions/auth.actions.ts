@@ -1,18 +1,19 @@
 // src/features/auth/actions/auth.actions.ts
 "use server";
 
-import { z } from "zod";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-
 import * as authService from '@/features/auth/services/auth.service';
 import {
   emailSchema as commonEmailSchema,
   passwordSchema as commonPasswordSchema,
   firstNameSchema as commonFirstNameSchema,
   lastNameSchema as commonLastNameSchema,
-  loginPasswordSchema,
 } from "@/features/auth/schemas";
+import { loginPasswordSchema } from "@/features/auth/schemas/login.schema"; // Ensure this path is correct
+import { getServerLogger } from '@/lib/logger';
+
+const logger = getServerLogger('AuthActions');
 
 /**
  * Represents the state returned by authentication server actions.
@@ -36,18 +37,22 @@ interface AuthActionState {
  */
 export async function requestPasswordReset(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = formData.get("email") as string;
+  logger.info(`Password reset requested for email: ${email?.substring(0,3)}...`);
 
   const validationResult = commonEmailSchema.safeParse(email);
   if (!validationResult.success) {
+    const errorMessage = validationResult.error.errors.map((e) => e.message).join(", ");
+    logger.warn('Password reset validation failed for email.', { emailProvided: !!email, error: errorMessage });
     return {
       success: false,
-      message: validationResult.error.errors.map((e) => e.message).join(", "),
-      errorFields: { email: validationResult.error.errors.map((e) => e.message).join(", ") }
+      message: errorMessage,
+      errorFields: { email: errorMessage }
     };
   }
 
   const origin = headers().get("origin");
   if (!origin) {
+    logger.error('Could not determine application origin for password reset.');
     return {
       success: false,
       message: "Could not determine application origin. Password reset failed.",
@@ -58,12 +63,13 @@ export async function requestPasswordReset(prevState: AuthActionState, formData:
   const { error } = await authService.resetPasswordForEmailWithSupabase(email, { redirectTo });
 
   if (error) {
+    logger.error('Service error during password reset request.', { email, serviceError: error.message });
     return {
       success: false,
       message: `Password reset request failed: ${error.message}`,
     };
   }
-
+  logger.info(`Password reset email sent successfully for email: ${email?.substring(0,3)}...`);
   return {
     success: true,
     message: "If an account exists for this email, a password reset link has been sent.",
@@ -81,8 +87,12 @@ export async function requestPasswordReset(prevState: AuthActionState, formData:
 export async function updateUserPassword(prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
+  const email = formData.get("email") as string; // Assuming email is passed if needed for context, though not directly used by Supabase updateUser
+  logger.info(`Attempting to update password for user (email from form: ${email?.substring(0,3)}...).`);
+
 
   if (password !== confirmPassword) {
+    logger.warn('Password update validation failed: Passwords do not match.');
     return {
       success: false,
       message: "Passwords do not match.",
@@ -92,10 +102,12 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
 
   const passwordValidation = commonPasswordSchema.safeParse(password);
   if (!passwordValidation.success) {
+    const errorMessage = passwordValidation.error.errors.map((e) => e.message).join(", ");
+    logger.warn('Password update validation failed for new password.', { error: errorMessage });
     return {
       success: false,
-      message: passwordValidation.error.errors.map((e) => e.message).join(", "),
-      errorFields: { password: passwordValidation.error.errors.map((e) => e.message).join(", ") }
+      message: errorMessage,
+      errorFields: { password: errorMessage }
     };
   }
 
@@ -106,12 +118,14 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
     if (error.message.includes("User not found") || error.message.includes("Auth session missing")) {
         friendlyMessage = "User not authenticated or session invalid. Please try the password reset process again.";
     }
+    logger.error('Service error during password update.', { serviceError: error.message, friendlyMessage });
     return {
       success: false,
       message: friendlyMessage,
     };
   }
 
+  logger.info(`Password updated successfully for user (email from form: ${email?.substring(0,3)}...).`);
   return {
     success: true,
     message: "Your password has been updated successfully. You can now log in with your new password.",
@@ -129,28 +143,34 @@ export async function updateUserPassword(prevState: AuthActionState, formData: F
 export async function signInWithPassword(prevState: AuthActionState, formData: FormData): Promise<AuthActionState | void> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  logger.info(`Sign-in attempt for email: ${email?.substring(0,3)}...`);
 
   const emailValidation = commonEmailSchema.safeParse(email);
   if (!emailValidation.success) {
+    const errorMessage = emailValidation.error.errors.map((e) => e.message).join(", ");
+    logger.warn('Sign-in validation failed for email.', { emailProvided: !!email, error: errorMessage });
     return {
       success: false,
       message: "Invalid email address.",
-      errorFields: { email: emailValidation.error.errors.map((e) => e.message).join(", ") }
+      errorFields: { email: errorMessage }
     };
   }
 
   const passwordValidation = loginPasswordSchema.safeParse(password);
    if (!passwordValidation.success) {
+    const errorMessage = passwordValidation.error.errors.map((e) => e.message).join(", ");
+    logger.warn('Sign-in validation failed for password.', { error: errorMessage });
     return {
       success: false,
       message: "Password is required.",
-      errorFields: { password: passwordValidation.error.errors.map((e) => e.message).join(", ") }
+      errorFields: { password: errorMessage }
     };
   }
 
   const { data, error } = await authService.signInWithPasswordWithSupabase({ email, password });
 
   if (error) {
+    logger.error('Service error during sign-in.', { email: email?.substring(0,3), serviceError: error.message });
     return {
       success: false,
       message: error.message || "Invalid login credentials.",
@@ -158,12 +178,14 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
   }
 
   if (!data.user) {
+     logger.warn('Sign-in failed: No user data returned despite no service error.', { email: email?.substring(0,3) });
      return {
       success: false,
       message: "Login failed. Please check your credentials.",
     };
   }
   
+  logger.info(`Sign-in successful, redirecting user: ${data.user.id}`);
   redirect('/');
 }
 
@@ -182,6 +204,7 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
+  logger.info(`Sign-up attempt for email: ${email?.substring(0,3)}...`, { firstNameProvided: !!firstName, lastNameProvided: !!lastName });
 
   let errorFields: Record<string, string> = {};
   let overallMessage = "";
@@ -217,6 +240,7 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
     } else if (Object.keys(errorFields).length === 1 && !errorFields.confirmPassword) { 
         overallMessage = Object.values(errorFields)[0];
     }
+    logger.warn('Sign-up validation failed.', { errorFields });
     return {
       success: false,
       message: overallMessage,
@@ -226,6 +250,7 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
 
   const origin = headers().get("origin");
   if (!origin) {
+    logger.error('Could not determine application origin for sign-up.');
     return {
       success: false,
       message: "Could not determine application origin. Sign up failed.",
@@ -245,24 +270,37 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
   );
 
   if (error) {
+    logger.error('Service error during sign-up.', { email: email?.substring(0,3), serviceError: error.message });
     return {
       success: false,
       message: `Sign up failed: ${error.message}`,
     };
   }
 
-  if (!data.user && !data.session) { 
-     return {
-      success: false,
-      message: data.user === null && data.session === null && !error ?
-               "Sign up process initiated. Please check your email to confirm your account before logging in." :
-               "Sign up successful, but no user data returned. Please check your email to confirm.",
+  // Check if user is already confirmed (e.g., if auto-confirm is on, or if it's an existing unconfirmed user re-signing up)
+  // Supabase returns user and session null if email requires confirmation and it's a new user.
+  // It might return a user if the user already exists (e.g., unconfirmed)
+  if (data.user && data.user.email_confirmed_at) {
+    logger.info(`Sign-up successful and user already confirmed for email: ${email?.substring(0,3)}... User ID: ${data.user.id}`);
+    return {
+      success: true,
+      message: "Account already confirmed. You can now log in.",
     };
   }
   
+  if (!data.user && !data.session && !error) {
+    logger.info(`Sign-up successful, email confirmation required for: ${email?.substring(0,3)}...`);
+    return {
+      success: true,
+      message: "Sign up initiated! Please check your email to confirm your account before logging in.",
+    };
+  }
+  
+  // Fallback for unexpected states, log and provide a generic message
+  logger.warn('Sign-up completed with unexpected state from Supabase.', { email: email?.substring(0,3), data });
   return {
-    success: true,
-    message: "Sign up successful! Please check your email to confirm your account before logging in.",
+    success: true, // Still, consider it a success in terms of initiating the flow
+    message: "Sign up process initiated. Please check your email.",
   };
 }
 
@@ -273,10 +311,14 @@ export async function signUpNewUser(prevState: AuthActionState, formData: FormDa
  * @returns {Promise<void>} Void on successful redirect.
  */
 export async function signOutUserAction(): Promise<void> {
+  logger.info('Sign-out action initiated.');
   const { error } = await authService.signOutWithSupabase();
 
   if (error) {
-    console.error("Sign out error:", error.message);
+    // The service already logs this error. Here, we just log that the action encountered it.
+    logger.error("Sign-out action encountered an error from the service.", { serviceError: error.message });
+  } else {
+    logger.info('Sign-out action successful, redirecting to /login.');
   }
   redirect('/login');
 }
