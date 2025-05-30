@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 
 interface AuthSessionContextType {
   user: User | null;
-  isLoading: boolean; // This isLoading reflects the initial session check.
+  isLoading: boolean; // This isLoading reflects the initial session check and ongoing auth changes.
   error: Error | null;
 }
 
@@ -24,7 +24,7 @@ const AuthSessionContext = createContext<AuthSessionContextType | undefined>(
 /**
  * Provides the Supabase user session to its children components via React Context.
  * It listens to Supabase's onAuthStateChange to keep the session state updated.
- * The `isLoading` state specifically tracks the completion of the initial session check.
+ * The `isLoading` state tracks the completion of the initial session check.
  *
  * @param {object} props - The component's props.
  * @param {ReactNode} props.children - The child components to render.
@@ -34,22 +34,21 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start true, set to false once initial auth state is known
   const [error, setError] = useState<Error | null>(null);
-  // Instantiate client stably using useState's initializer function
   const [supabaseClient] = useState(() => createClient());
 
   useEffect(() => {
     let isMounted = true;
     let loadingFallbackTimeoutId: NodeJS.Timeout | null = null;
 
+    console.log("AuthSessionProvider: useEffect mounting or supabaseClient changed.");
+
     // Attempt to get the current session state when the provider mounts.
-    // This helps catch existing sessions or sessions established by server-side redirects.
     supabaseClient.auth.getSession().then(({ data: { session }, error: sessionError }) => {
       if (!isMounted) return;
 
       if (sessionError) {
         console.error("AuthSessionProvider: Error during initial getSession():", sessionError);
         setError(sessionError);
-        // Potentially set user to null if error implies no valid session
         setUser(null);
       } else if (session) {
         console.log("AuthSessionProvider: User from initial getSession():", session.user);
@@ -65,7 +64,7 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
     });
 
     // Set up the auth state change listener
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(
+    const { data: { subscription: authSubscription } } = supabaseClient.auth.onAuthStateChange( // Correctly destructure subscription
       (event, session) => {
         if (!isMounted) return;
         
@@ -77,10 +76,13 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
         // we can confidently say the initial loading is complete.
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
           if (loadingFallbackTimeoutId) {
-            clearTimeout(loadingFallbackTimeoutId); // Clear fallback if event arrives
+            clearTimeout(loadingFallbackTimeoutId); 
             loadingFallbackTimeoutId = null;
           }
-          setIsLoading(false);
+          if (isLoading) { // Only set if it was previously true
+            console.log("AuthSessionProvider: Setting isLoading to false due to auth event:", event);
+            setIsLoading(false);
+          }
         }
       }
     );
@@ -88,22 +90,25 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
     // Fallback mechanism: if after a short period, onAuthStateChange hasn't fired
     // an event that sets isLoading to false (e.g. INITIAL_SESSION),
     // then we assume loading is complete (e.g., there's truly no session, or some other issue).
-    loadingFallbackTimeoutId = setTimeout(() => {
-      if (isMounted && isLoading) { // Check if still loading
-        console.warn("AuthSessionProvider: isLoading fallback timeout. Forcing isLoading to false.");
-        setIsLoading(false);
-      }
-    }, 2000); // 2-second timeout, adjust if needed
+    if (isLoading) { // Only set timeout if still loading
+        loadingFallbackTimeoutId = setTimeout(() => {
+            if (isMounted && isLoading) { 
+                console.warn("AuthSessionProvider: isLoading fallback timeout. Forcing isLoading to false.");
+                setIsLoading(false);
+            }
+        }, 2500); // Adjusted timeout slightly
+    }
+
 
     return () => {
       isMounted = false;
-      authListener?.unsubscribe();
+      authSubscription?.unsubscribe(); // Call unsubscribe on the subscription object
       if (loadingFallbackTimeoutId) {
         clearTimeout(loadingFallbackTimeoutId);
       }
+      console.log("AuthSessionProvider: useEffect cleanup.");
     };
-  }, [supabaseClient, isLoading]); // isLoading is included to re-evaluate timeout logic if it changes externally,
-                                // though primary control is internal to this useEffect.
+  }, [supabaseClient, isLoading]); // isLoading is included to re-evaluate timeout logic
 
   return (
     <AuthSessionContext.Provider value={{ user, isLoading, error }}>
