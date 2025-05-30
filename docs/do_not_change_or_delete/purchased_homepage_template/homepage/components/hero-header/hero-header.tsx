@@ -1,0 +1,176 @@
+
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useScroll, useMotionValueEvent, type Variants } from 'framer-motion';
+import NavLink from './nav-link';
+import DropdownMenu from './dropdown-menu';
+import MobileMenu from './mobile-menu';
+import { MenuIcon, CloseIcon, NexusLogoIcon } from './icons';
+import { NAV_ITEMS_DESKTOP, NAV_ITEMS_MOBILE, LOGO_TEXT } from '../../constants';
+import type { NavItem as NavItemType } from '../../types';
+import { useAuthStore } from '@/store/auth.store';
+import { useAuth } from '@/features/auth/hooks/use-auth';
+import { cn } from '@/lib/utils';
+
+const HeroHeader: React.FC = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    setIsScrolled(latest > 10);
+  });
+  
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { isAuthenticated, isLoading: isLoadingAuth } = useAuthStore();
+  const { signOut } = useAuth();
+
+
+  const handleDropdownEnter = (label: string) => {
+    if (dropdownTimeoutRef.current) {
+        clearTimeout(dropdownTimeoutRef.current);
+    }
+    setOpenDropdown(label);
+  };
+
+  const handleDropdownLeave = () => {
+    dropdownTimeoutRef.current = setTimeout(() => {
+        setOpenDropdown(null);
+    }, 100); 
+  };
+  
+  const closeDropdown = () => {
+    setOpenDropdown(null);
+  };
+  
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(prev => !prev);
+  };
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+  
+  const headerVariants: Variants = {
+    top: {
+      backgroundColor: 'hsl(var(--background) / 0.8)',
+      borderBottomColor: 'hsl(var(--border) / 0.5)',
+      boxShadow: 'none',
+    },
+    scrolled: {
+      backgroundColor: 'hsl(var(--background) / 0.95)',
+      borderBottomColor: 'hsl(var(--border) / 0.7)',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    // Optionally, close mobile menu if open
+    if (isMobileMenuOpen) {
+      toggleMobileMenu();
+    }
+  };
+
+  return (
+    <motion.header
+      ref={headerRef}
+      variants={headerVariants}
+      initial="top"
+      animate={isScrolled ? 'scrolled' : 'top'}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="px-6 w-full md:px-10 lg:px-16 fixed top-0 left-0 right-0 z-30 backdrop-blur-md border-b"
+    >
+      <div className="container mx-auto px-0 sm:px-0 lg:px-0">
+        <nav className="flex justify-between items-center max-w-screen-xl mx-auto h-[70px]">
+          {/* Logo */}
+          <a href="/" className="flex items-center flex-shrink-0 text-foreground">
+            <NexusLogoIcon />
+            <span className="text-xl font-bold ml-2">{LOGO_TEXT}</span>
+          </a>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center justify-center flex-grow space-x-6 lg:space-x-8 px-4">
+            {NAV_ITEMS_DESKTOP.map((item: NavItemType) => (
+              <div 
+                key={item.label} 
+                className="relative"
+                onMouseEnter={item.children ? () => handleDropdownEnter(item.label) : undefined}
+                onMouseLeave={item.children ? handleDropdownLeave : undefined}
+              >
+                <NavLink
+                  href={item.href}
+                  label={item.label}
+                  hasDropdown={!!item.children}
+                  isOpen={openDropdown === item.label}
+                  onClick={item.children ? (e) => { e.preventDefault(); handleDropdownEnter(item.label); } : closeDropdown}
+                />
+                {item.children && (
+                  <DropdownMenu
+                    items={item.children}
+                    isOpen={openDropdown === item.label}
+                    onClose={closeDropdown} 
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {/* Desktop Action Buttons */}
+          <div className="hidden md:flex items-center flex-shrink-0 space-x-4 lg:space-x-6">
+            {isLoadingAuth ? (
+              <>
+                <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+                <div className="h-8 w-24 bg-muted rounded-md animate-pulse" />
+              </>
+            ) : isAuthenticated ? (
+              <>
+                <button
+                  onClick={handleSignOut}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 py-1"
+                >
+                  Log Out
+                </button>
+                <NavLink href="/dashboard" label="Dashboard" isButton isPrimary />
+              </>
+            ) : (
+              <>
+                <NavLink href="/register" label="Register" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200 py-1" />
+                <NavLink href="/login" label="Sign In" isButton isPrimary />
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center">
+            <motion.button
+              onClick={toggleMobileMenu}
+              className="text-muted-foreground hover:text-foreground z-50 p-2 -mr-2"
+              aria-label="Toggle menu"
+              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            >
+              {isMobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
+            </motion.button>
+          </div>
+        </nav>
+      </div>
+       <MobileMenu
+        isOpen={isMobileMenuOpen}
+        items={NAV_ITEMS_MOBILE} // Pass general mobile nav items
+        onClose={toggleMobileMenu}
+      />
+    </motion.header>
+  );
+};
+
+export default HeroHeader;
