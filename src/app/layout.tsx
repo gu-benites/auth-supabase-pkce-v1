@@ -1,4 +1,3 @@
-// Remove 'use client'; Root layouts should be Server Components by default.
 // Providers like ThemeProvider handle their own client boundaries.
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';

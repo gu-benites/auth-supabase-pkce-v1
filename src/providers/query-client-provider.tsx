@@ -1,3 +1,5 @@
+'use client'; // Add this directive
+
 import { QueryClient, QueryClientProvider as TanstackQueryClientProvider } from '@tanstack/react-query';
 // ReactQueryDevtools import removed from here
 import React, { type ReactNode } from 'react';
