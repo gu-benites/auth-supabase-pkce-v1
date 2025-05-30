@@ -17,7 +17,8 @@ import { PassForgeLogo } from '@/components/icons';
 import { Loader2, UserCircle2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-const getTimestamp = () => new Date().toISOString();
+// Removed getTimestamp and specific useEffect for logging session loading finished.
+// The header now relies on isSessionLoading for its primary loader.
 
 /**
  * Renders the main header for the homepage.
@@ -44,22 +45,11 @@ const HeroHeader: React.FC = () => {
     user,
     profile,
     isAuthenticated,
-    isLoading: compositeIsLoading, // Renamed to avoid confusion, represents combined session and profile loading
-    isSessionLoading, // Use this for the primary auth button visibility
-    sessionError,
-    // isProfileLoading, // Can be used for finer-grained loading of profile-specific info
-    // profileError // Can be used for finer-grained error handling of profile-specific info
+    isLoading: compositeIsLoading, // Combined session and profile loading
+    isSessionLoading, // Specifically for the session provider's initial check
+    // sessionError, // Available if needed for specific error display
+    // profileError // Available if needed for specific error display
   } = useAuth();
-
-  const prevIsSessionLoadingRef = useRef<boolean>(isSessionLoading);
-
-  useEffect(() => {
-    if (prevIsSessionLoadingRef.current === true && isSessionLoading === false) {
-      console.log(`[${getTimestamp()}] HomepageHeader: Session loading finished. isAuthenticated: ${isAuthenticated}`);
-    }
-    prevIsSessionLoadingRef.current = isSessionLoading;
-  }, [isSessionLoading, isAuthenticated]);
-
 
   const handleDropdownEnter = (label: string) => {
     if (dropdownTimeoutRef.current) {
@@ -140,7 +130,7 @@ const HeroHeader: React.FC = () => {
           <Link href="/" className="flex items-center flex-shrink-0 group">
             <PassForgeLogo className="h-8 w-8 text-primary group-hover:text-primary transition-colors" />
             <span className="text-xl font-bold ml-2 text-foreground group-hover:text-primary transition-colors">
-              PassForge
+              {LOGO_TEXT}
             </span>
           </Link>
 
@@ -175,12 +165,10 @@ const HeroHeader: React.FC = () => {
           <div className="hidden md:flex items-center flex-shrink-0 space-x-2 sm:space-x-4 lg:space-x-6">
             {isSessionLoading ? ( // Use session-specific loading for the main button block
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            ) : isAuthenticated ? (
+            ) : isAuthenticated ? ( // isAuthenticated is true if session user exists
               <>
                 <span className="text-sm text-foreground hidden sm:inline">
-                  Hi, {getDisplayName()} 
-                  {/* Optionally, show a smaller loader if profile is still loading for name/avatar */}
-                  {/* {compositeIsLoading && !isSessionLoading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-1 inline-block" />} */}
+                  Hi, {getDisplayName()}
                 </span>
                 <Avatar className="h-8 w-8 text-sm">
                   <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
