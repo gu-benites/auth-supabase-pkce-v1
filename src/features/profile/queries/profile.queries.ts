@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { UserProfileSchema, type UserProfile } from '../schemas/profile.schema';
 import { getProfileByUserId } from '../services/profile.service';
 
+const getTimestamp = () => new Date().toISOString();
+
 /**
  * Server Action to get the currently authenticated user's profile.
  * This function is intended to be used as a queryFn for TanStack Query.
@@ -13,38 +15,42 @@ import { getProfileByUserId } from '../services/profile.service';
  * @throws Error if user is not authenticated, profile is not found, or service fails.
  */
 export async function getCurrentUserProfile(): Promise<UserProfile> {
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Action started.`);
   const supabase = await createClient();
 
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Fetching auth user.`);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('Authentication error in getCurrentUserProfile:', authError);
+    console.error(`[${getTimestamp()}] getCurrentUserProfile: Authentication error:`, authError.message);
     throw new Error(`Authentication error: ${authError.message}`);
   }
   if (!user) {
-    console.error('No authenticated user found in getCurrentUserProfile.');
+    console.error(`[${getTimestamp()}] getCurrentUserProfile: No authenticated user found.`);
     throw new Error('User not authenticated.');
   }
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Auth user ID: ${user.id}. Fetching profile by ID.`);
 
   const { data: profile, error: serviceError } = await getProfileByUserId(user.id);
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Profile service call completed.`);
 
   if (serviceError) {
-    console.error(`Service error in getCurrentUserProfile for user ${user.id}:`, serviceError);
+    console.error(`[${getTimestamp()}] getCurrentUserProfile: Service error for user ${user.id}:`, serviceError.message);
     throw new Error(`Failed to get user profile: ${serviceError.message}`);
   }
   if (!profile) {
-    console.error(`Profile not found for user ${user.id} in getCurrentUserProfile.`);
-    // Consider what should happen if a profile is truly not found vs. an error.
-    // For now, throwing an error, but you might want to return null or a default profile.
+    console.error(`[${getTimestamp()}] getCurrentUserProfile: Profile not found for user ${user.id}.`);
     throw new Error('User profile not found.');
   }
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Profile data received. Validating.`);
   
   // Validate one last time, primarily to ensure the shape for the client
   const validationResult = UserProfileSchema.safeParse(profile);
   if (!validationResult.success) {
-    console.error('Final validation failed in getCurrentUserProfile:', validationResult.error.flatten());
+    console.error(`[${getTimestamp()}] getCurrentUserProfile: Final validation failed:`, validationResult.error.flatten());
     throw new Error('Profile data failed final validation.');
   }
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Validation successful. Returning profile.`);
 
   return validationResult.data;
 }
