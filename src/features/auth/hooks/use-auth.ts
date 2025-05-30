@@ -1,7 +1,7 @@
 // src/features/auth/hooks/use-auth.ts
 'use client';
 
-import { useAuthSession } from '@/components/providers/auth-session-provider';
+import { useAuthSession } from '@/providers'; // Updated import path
 import { useUserProfileQuery } from '@/features/profile/hooks/use-user-profile-query';
 import { type UserProfile } from '@/features/profile/schemas/profile.schema';
 import { type User } from '@supabase/supabase-js';
@@ -19,7 +19,7 @@ interface AuthState {
  * It combines the session state (raw Supabase user) from AuthSessionContext
  * with the detailed user profile fetched via TanStack Query (useUserProfileQuery).
  *
- * @returns An AuthState object containing:
+ * @returns {AuthState} An AuthState object containing:
  *  - `user`: The raw Supabase User object, or null if not authenticated.
  *  - `profile`: The detailed UserProfile object, or undefined if not loaded or not authenticated.
  *  - `isAuthenticated`: Boolean indicating if a user session exists.

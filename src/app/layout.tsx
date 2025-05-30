@@ -2,10 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui";
-import { PHProvider } from '@/components/providers/posthog-provider';
 import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview';
-import { AuthSessionProvider } from '@/components/providers/auth-session-provider';
-import QueryClientProvider from '@/components/providers/query-client-provider'; // Import the new Client Component
+import { AuthSessionProvider, PHProvider, QueryClientProvider } from '@/providers';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -28,7 +26,7 @@ export const metadata: Metadata = {
 
 /**
  * Root layout component for the PassForge application.
- * It sets up global fonts, providers (including AuthStateProvider), and the basic HTML structure.
+ * It sets up global fonts, providers, and the basic HTML structure.
  *
  * @param {object} props - The properties for the component.
  * @param {React.ReactNode} props.children - The child components to be rendered within this layout.
@@ -42,17 +40,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <QueryClientProvider> {/* Use the new Client Component here */}
+        <QueryClientProvider>
           <PHProvider>
             <AuthSessionProvider>
-              <div className={`${geistSans.variable} ${geistMono.variable} antialiased`}> {/* Use a div or other element instead of body */}
+              <div className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
                 <DynamicPostHogPageview />
                 {children}
               </div>
             </AuthSessionProvider>
           </PHProvider>
         </QueryClientProvider>
-        <Toaster /> {/* Toaster should be outside the QueryClientProvider if it doesn't use query hooks */}
+        <Toaster />
       </body>
     </html>
   );
