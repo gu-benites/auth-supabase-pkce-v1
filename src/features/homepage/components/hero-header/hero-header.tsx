@@ -17,6 +17,8 @@ import { PassForgeLogo } from '@/components/icons';
 import { Loader2, UserCircle2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+const getTimestamp = () => new Date().toISOString();
+
 /**
  * Renders the main header for the homepage.
  * It includes the application logo, desktop navigation links (if any),
@@ -39,6 +41,15 @@ const HeroHeader: React.FC = () => {
   const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { user, profile, isAuthenticated, isLoading } = useAuth();
+  const prevIsLoadingRef = useRef<boolean>(isLoading);
+
+  useEffect(() => {
+    if (prevIsLoadingRef.current === true && isLoading === false) {
+      console.log(`[${getTimestamp()}] HomepageHeader: Auth loading finished.`);
+    }
+    prevIsLoadingRef.current = isLoading;
+  }, [isLoading]);
+
 
   const handleDropdownEnter = (label: string) => {
     if (dropdownTimeoutRef.current) {
@@ -119,11 +130,11 @@ const HeroHeader: React.FC = () => {
           <Link href="/" className="flex items-center flex-shrink-0 group">
             <PassForgeLogo className="h-8 w-8 text-primary group-hover:text-primary transition-colors" />
             <span className="text-xl font-bold ml-2 text-foreground group-hover:text-primary transition-colors">
-              {LOGO_TEXT} {/* LOGO_TEXT is "PassForge" from constants */}
+              PassForge
             </span>
           </Link>
 
-          {/* Desktop Navigation (Simplified for auth template) */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center flex-grow space-x-6 lg:space-x-8 px-4">
             {NAV_ITEMS_DESKTOP.map((item: NavItemType) => (
               <div

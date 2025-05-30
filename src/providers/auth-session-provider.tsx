@@ -1,4 +1,5 @@
-'use client'; // Add this directive
+// src/providers/auth-session-provider.tsx
+'use client';
 
 import { type User } from '@supabase/supabase-js';
 import {
@@ -20,6 +21,8 @@ const AuthSessionContext = createContext<AuthSessionContextType | undefined>(
   undefined,
 );
 
+const getTimestamp = () => new Date().toISOString();
+
 /**
  * Provides the Supabase user session to its children components via React Context.
  * It listens to Supabase's onAuthStateChange to keep the session state updated.
@@ -31,86 +34,84 @@ const AuthSessionContext = createContext<AuthSessionContextType | undefined>(
  */
 export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start true, set to false once initial auth state is known
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [supabaseClient] = useState(() => createClient()); // Memoize client instance
+  const [supabaseClient] = useState(() => createClient());
 
   useEffect(() => {
     let isMounted = true;
     let loadingFallbackTimeoutId: NodeJS.Timeout | null = null;
 
-    console.log("AuthSessionProvider: useEffect mounting or supabaseClient changed.");
+    console.log(`[${getTimestamp()}] AuthSessionProvider: useEffect mounting or supabaseClient changed.`);
 
-    // Attempt to get the current session state when the provider mounts.
-    // This helps determine the initial state faster.
-    supabaseClient.auth.getSession().then(({ data: { session }, error: sessionError }) => {
-      if (!isMounted) return;
+    const initializeSession = async () => {
+      try {
+        // Try to get the user and session initially
+        const { data: { user: initialUser }, error: initialError } = await supabaseClient.auth.getUser();
+        if (!isMounted) return;
 
-      if (sessionError) {
-        console.error("AuthSessionProvider: Error during initial getSession():", sessionError);
-        setError(sessionError);
+        if (initialError) {
+          console.error(`[${getTimestamp()}] AuthSessionProvider: Error during initial getUser():`, initialError);
+          setError(initialError);
+          setUser(null);
+        } else if (initialUser) {
+          console.log(`[${getTimestamp()}] AuthSessionProvider: User from initial getUser():`, initialUser);
+          setUser(initialUser);
+        }
+      } catch (catchedError) {
+        if (!isMounted) return;
+        console.error(`[${getTimestamp()}] AuthSessionProvider: Exception during initial getUser():`, catchedError);
+        setError(catchedError instanceof Error ? catchedError : new Error('Unknown error during getUser'));
         setUser(null);
-      } else if (session) {
-        console.log("AuthSessionProvider: User from initial getSession():", session.user);
-        setUser(session.user);
+      } finally {
+        // Important: Set isLoading to false after the initial check,
+        // but rely on onAuthStateChange for the most definitive "INITIAL_SESSION" signal.
+        // If onAuthStateChange fires quickly with INITIAL_SESSION, this might be redundant or slightly premature.
+        // The timeout fallback is crucial.
       }
-      // Do not set isLoading to false here yet; wait for onAuthStateChange's INITIAL_SESSION event
-      // or the fallback timeout for a more definitive signal.
-    }).catch(catchedError => {
-      if (!isMounted) return;
-      console.error("AuthSessionProvider: Exception during initial getSession():", catchedError);
-      setError(catchedError instanceof Error ? catchedError : new Error('Unknown error during getSession'));
-      setUser(null);
-      // Consider setting isLoading to false here as well, as the initial attempt failed.
-      // if (isLoading) setIsLoading(false);
-    });
+    };
 
-    // Set up the auth state change listener
+    initializeSession();
+
     const { data: { subscription: authSubscription } } = supabaseClient.auth.onAuthStateChange(
       (event, session) => {
         if (!isMounted) return;
         
-        console.log("AuthSessionProvider: onAuthStateChange event:", event, "Session user:", session?.user);
+        console.log(`[${getTimestamp()}] AuthSessionProvider: onAuthStateChange event:`, event, "Session user:", session?.user);
         setUser(session?.user ?? null);
         setError(null); // Clear previous errors on new auth state
 
-        // Once we get an event that clarifies the session state (INITIAL_SESSION, SIGNED_IN, SIGNED_OUT),
-        // we can confidently say the initial loading is complete.
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
           if (loadingFallbackTimeoutId) {
             clearTimeout(loadingFallbackTimeoutId); 
             loadingFallbackTimeoutId = null;
           }
-          if (isLoading) { // Only set if it was previously true
-            console.log("AuthSessionProvider: Setting isLoading to false due to auth event:", event);
+          if (isLoading) {
+            console.log(`[${getTimestamp()}] AuthSessionProvider: Setting isLoading to false due to auth event:`, event);
             setIsLoading(false);
           }
         }
       }
     );
-
-    // Fallback mechanism: if after a short period, onAuthStateChange hasn't fired
-    // an event that sets isLoading to false (e.g. INITIAL_SESSION),
-    // then we assume loading is complete (e.g., there's truly no session, or some other issue).
-    if (isLoading) { // Only set timeout if still loading
+    
+    if (isLoading) {
         loadingFallbackTimeoutId = setTimeout(() => {
-            if (isMounted && isLoading) { // Check isLoading again before setting
-                console.warn("AuthSessionProvider: isLoading fallback timeout. Forcing isLoading to false.");
+            if (isMounted && isLoading) { 
+                console.warn(`[${getTimestamp()}] AuthSessionProvider: isLoading fallback timeout. Forcing isLoading to false.`);
                 setIsLoading(false);
             }
-        }, 2500); // Adjusted timeout slightly
+        }, 2500); 
     }
-
 
     return () => {
       isMounted = false;
-      authSubscription?.unsubscribe(); // Call unsubscribe on the subscription object
+      authSubscription?.unsubscribe();
       if (loadingFallbackTimeoutId) {
         clearTimeout(loadingFallbackTimeoutId);
       }
-      console.log("AuthSessionProvider: useEffect cleanup.");
+      console.log(`[${getTimestamp()}] AuthSessionProvider: useEffect cleanup.`);
     };
-  }, [supabaseClient, isLoading]); // isLoading is included to re-evaluate timeout logic
+  }, [supabaseClient]); // supabaseClient should be stable
 
   return (
     <AuthSessionContext.Provider value={{ user, isLoading, error }}>
