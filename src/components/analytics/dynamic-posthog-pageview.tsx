@@ -1,13 +1,8 @@
-// src/components/analytics/dynamic-posthog-pageview.tsx
-'use client';
+// This file can be safely deleted as PostHog integration is being removed.
+// Content related to PostHog has been removed.
+// If you re-integrate PostHog or another analytics provider,
+// you might create a similar dynamic import wrapper here.
 
-import dynamic from 'next/dynamic';
-
-// Dynamically import PostHogPageview to ensure it's client-side only
-const PostHogPageview = dynamic(() => import('@/components/analytics/posthog-pageview').then(mod => mod.PostHogPageview), {
-  ssr: false,
-});
-
-export function DynamicPostHogPageview() {
-  return <PostHogPageview />;
+export default function DynamicPostHogPageview_Removed() {
+  return null;
 }

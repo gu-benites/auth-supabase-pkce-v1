@@ -1,26 +1,6 @@
-// src/components/analytics/posthog-pageview.tsx
-'use client'
+// This file can be safely deleted as PostHog integration is being removed.
+// Content related to PostHog has been removed.
 
-import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
-import { usePostHog } from 'posthog-js/react'
-
-export function PostHogPageview(): null {
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const posthog = usePostHog()
-
-  useEffect(() => {
-    if (pathname && posthog) {
-      let url = window.origin + pathname
-      if (searchParams && searchParams.toString()) {
-        url = url + `?${searchParams.toString()}`
-      }
-      posthog.capture('$pageview', {
-        '$current_url': url,
-      })
-    }
-  }, [pathname, searchParams, posthog])
-
-  return null
+export default function PostHogPageview_Removed() {
+  return null;
 }

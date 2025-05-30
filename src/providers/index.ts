@@ -5,5 +5,6 @@
  */
 
 export * from './auth-session-provider';
-export * from './posthog-provider';
+export * from './theme-provider';
 export { default as QueryClientProvider } from './query-client-provider';
+// PHProvider export removed
