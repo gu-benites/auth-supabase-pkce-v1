@@ -2,17 +2,18 @@
 'use client';
 
 import React from 'react';
-import HeroHeader from './components/hero-header/hero-header'; // Ensure this path is correct
+import HeroHeader from './components/hero-header/hero-header';
 import HeroCanvasBackground from './components/hero-canvas-background/hero-canvas-background';
 import HeroContent from './components/hero-content/hero-content';
-import { useAuth } from '@/features/auth/hooks'; // For debugging
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // For debug display
-import { Loader2 } from 'lucide-react'; // For debug display
+import { useAuth } from '@/features/auth/hooks';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 
 /**
  * The main orchestrating component for the homepage.
  * It combines the header, an interactive canvas background, and the primary hero content.
- * Includes a debug section to display authentication state.
+ * Includes a debug section to display authentication state if a user is logged in.
+ * The main hero content is rendered immediately, while auth-dependent debug info loads.
  *
  * @returns {JSX.Element} The complete hero section for the homepage.
  */
@@ -38,13 +39,14 @@ export const HeroSection: React.FC = () => {
 
       {/* Content Area - z-10 */}
       <main className="flex-grow flex flex-col items-center justify-center text-center px-4 pt-8 pb-16 relative z-10">
+        {/* Conditional Debug Information */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center text-foreground">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p>Loading Authentication State...</p>
+          <div className="flex flex-col items-center justify-center text-foreground mb-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-sm">Loading Auth Info...</p>
           </div>
         ) : isAuthenticated ? (
-          <Card className="w-full max-w-2xl mx-auto my-8 text-left bg-background/80 backdrop-blur-sm shadow-xl">
+          <Card className="w-full max-w-2xl mx-auto mb-8 text-left bg-background/80 backdrop-blur-sm shadow-xl">
             <CardHeader>
               <CardTitle className="text-primary">Authenticated User Info (Debug)</CardTitle>
             </CardHeader>
@@ -77,13 +79,12 @@ export const HeroSection: React.FC = () => {
                   </pre>
                 </div>
               )}
-               <hr className="my-4 border-border" />
-               <HeroContent />
             </CardContent>
           </Card>
-        ) : (
-          <HeroContent />
-        )}
+        ) : null} {/* End of conditional debug information */}
+
+        {/* HeroContent - Renders immediately and unconditionally */}
+        <HeroContent />
       </main>
     </section>
   );
