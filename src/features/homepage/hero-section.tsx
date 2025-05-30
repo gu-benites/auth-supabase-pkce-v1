@@ -6,8 +6,8 @@ import HeroHeader from './components/hero-header/hero-header';
 import HeroCanvasBackground from './components/hero-canvas-background/hero-canvas-background';
 import HeroContent from './components/hero-content/hero-content';
 import { useAuth } from '@/features/auth/hooks';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+// Loader2 import removed as the explicit loading message for debug is removed.
 
 /**
  * The main orchestrating component for the homepage.
@@ -39,13 +39,8 @@ export const HeroSection: React.FC = () => {
 
       {/* Content Area - z-10 */}
       <main className="flex-grow flex flex-col items-center justify-center text-center px-4 pt-8 pb-16 relative z-10">
-        {/* Conditional Debug Information */}
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center text-foreground mb-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-            <p className="text-sm">Loading Auth Info...</p>
-          </div>
-        ) : isAuthenticated ? (
+        {/* Conditional Debug Information - RENDER ONLY IF AUTHENTICATED AND NOT LOADING */}
+        {!isLoading && isAuthenticated && (
           <Card className="w-full max-w-2xl mx-auto mb-8 text-left bg-background/80 backdrop-blur-sm shadow-xl">
             <CardHeader>
               <CardTitle className="text-primary">Authenticated User Info (Debug)</CardTitle>
@@ -81,7 +76,7 @@ export const HeroSection: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        ) : null} {/* End of conditional debug information */}
+        )} {/* End of conditional debug information */}
 
         {/* HeroContent - Renders immediately and unconditionally */}
         <HeroContent />
