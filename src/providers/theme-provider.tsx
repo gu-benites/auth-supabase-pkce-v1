@@ -1,4 +1,4 @@
-'use client';
+'use client'; // Add this directive
 
 import * as React from 'react';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';

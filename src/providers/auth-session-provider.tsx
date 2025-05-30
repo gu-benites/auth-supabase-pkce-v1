@@ -1,6 +1,3 @@
-// src/providers/auth-session-provider.tsx
-'use client';
-
 import { type User } from '@supabase/supabase-js';
 import {
   createContext,
