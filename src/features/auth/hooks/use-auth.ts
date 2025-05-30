@@ -1,7 +1,7 @@
 // src/features/auth/hooks/use-auth.ts
 'use client';
 
-import { useAuthSession } from '@/providers'; // Updated import path
+import { useAuthSession } from '@/providers';
 import { useUserProfileQuery } from '@/features/profile/hooks/use-user-profile-query';
 import { type UserProfile } from '@/features/profile/schemas/profile.schema';
 import { type User } from '@supabase/supabase-js';
@@ -10,8 +10,10 @@ interface AuthState {
   user: User | null;
   profile: UserProfile | undefined;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  error: Error | null;
+  isLoading: boolean; // Composite loading (session OR profile if user exists)
+  error: Error | null; // Composite error (session OR profile if user exists)
+  isSessionLoading: boolean; // Specifically for AuthSessionProvider's initial check
+  sessionError: Error | null; // Specifically for errors from AuthSessionProvider
 }
 
 /**
@@ -19,15 +21,14 @@ interface AuthState {
  * It combines the session state (raw Supabase user) from AuthSessionContext
  * with the detailed user profile fetched via TanStack Query (useUserProfileQuery).
  *
- * @returns {AuthState} An AuthState object containing:
- *  - `user`: The raw Supabase User object, or null if not authenticated.
- *  - `profile`: The detailed UserProfile object, or undefined if not loaded or not authenticated.
- *  - `isAuthenticated`: Boolean indicating if a user session exists.
- *  - `isLoading`: Boolean indicating if session or profile data is currently loading.
- *  - `error`: An Error object if an error occurred during session or profile fetching.
+ * @returns {AuthState} An AuthState object.
  */
 export const useAuth = (): AuthState => {
-  const { user, isLoading: isSessionLoading, error: sessionError } = useAuthSession();
+  const { 
+    user, 
+    isLoading: currentIsSessionLoading, // Renamed to avoid conflict
+    error: currentSessionError // Renamed to avoid conflict
+  } = useAuthSession();
   
   const { 
     profile, 
@@ -35,34 +36,29 @@ export const useAuth = (): AuthState => {
     isError: isProfileError, 
     error: profileError 
   } = useUserProfileQuery({
-    userId: user?.id, // Query is enabled only if user.id exists
+    userId: user?.id,
   });
 
   const isAuthenticated = !!user;
 
-  // isLoading is true if the session is loading, or if the user is authenticated and the profile is loading.
-  const isLoading = isSessionLoading || (isAuthenticated && isProfileLoading);
+  // Composite isLoading: true if session is loading OR (user is authenticated AND profile is loading).
+  const isLoading = currentIsSessionLoading || (isAuthenticated && isProfileLoading);
 
-  // Prioritize sessionError, then profileError
-  let error: Error | null = null;
-  if (sessionError) {
-    error = sessionError;
-  } else if (isProfileError && profileError) {
-    // Only consider profile error if a user is authenticated, otherwise session state is king
-    if (isAuthenticated) {
-      error = profileError;
-    }
+  // Composite error: Prioritize sessionError, then profileError if authenticated.
+  let compositeError: Error | null = null;
+  if (currentSessionError) {
+    compositeError = currentSessionError;
+  } else if (isProfileError && profileError && isAuthenticated) {
+    compositeError = profileError;
   }
-  // If there's a profile error but no user (e.g. user signed out while query was running),
-  // we might not want to show profile error. Session error/state is more relevant.
-  // The logic above already handles this by only setting profileError if isAuthenticated.
-
 
   return {
     user,
     profile,
     isAuthenticated,
-    isLoading,
-    error,
+    isLoading, // Composite loading
+    error: compositeError, // Composite error
+    isSessionLoading: currentIsSessionLoading, // Session-specific loading
+    sessionError: currentSessionError, // Session-specific error
   };
 };

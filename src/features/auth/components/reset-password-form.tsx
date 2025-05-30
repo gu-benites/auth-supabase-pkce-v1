@@ -10,7 +10,7 @@ import { updateUserPassword } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
-import { useAuth } from "@/features/auth/hooks"; // Import the main useAuth hook
+import { useAuth } from "@/features/auth/hooks";
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -48,20 +48,21 @@ export default function ResetPasswordForm(): JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { user, isAuthenticated, isLoading: isAuthLoading, error: authError } = useAuth();
+  // Use session-specific loading and error from useAuth
+  const { user, isSessionLoading, sessionError } = useAuth();
 
   useEffect(() => {
-    if (!isAuthLoading) {
-      if (!isAuthenticated || authError) {
+    if (!isSessionLoading) { // Wait for session check to complete
+      if (!user || sessionError) { // Check if no user from session or if there's a session error
         toast({
           title: "Authentication Error",
-          description: authError?.message || "You are not authorized to update password. Please try the reset process again.",
+          description: sessionError?.message || "Your session is invalid or has expired. Please try the password reset process again.",
           variant: "destructive",
         });
         router.push('/forgot-password');
       }
     }
-  }, [isAuthLoading, isAuthenticated, authError, router, toast]);
+  }, [isSessionLoading, user, sessionError, router, toast]);
 
   useEffect(() => {
     if (state?.message) {
@@ -81,7 +82,7 @@ export default function ResetPasswordForm(): JSX.Element {
     }
   }, [state, toast]);
 
-  if (isAuthLoading) {
+  if (isSessionLoading) {
     return (
       <main className="flex flex-col items-center justify-center min-h-screen p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -90,15 +91,8 @@ export default function ResetPasswordForm(): JSX.Element {
     );
   }
 
-  if (!isAuthenticated && !isAuthLoading) {
-    // This case should ideally be handled by the useEffect redirect,
-    // but return null or a message to prevent rendering the form.
-    return (
-        <main className="flex flex-col items-center justify-center min-h-screen p-4">
-            <p className="text-muted-foreground">Redirecting...</p>
-        </main>
-    );
-  }
+  // If still here after loading and not redirected, means user session is valid
+  // (user object exists and no sessionError)
 
   if (state?.success) {
      return (
@@ -123,6 +117,17 @@ export default function ResetPasswordForm(): JSX.Element {
       </main>
      )
   }
+
+  // Render form only if session is valid (user exists and no sessionError) and action not yet successful
+  if (!user || sessionError) {
+     // This case should ideally be handled by the useEffect redirect, but as a fallback.
+     return (
+        <main className="flex flex-col items-center justify-center min-h-screen p-4">
+            <p className="text-muted-foreground">Redirecting...</p>
+        </main>
+    );
+  }
+
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
@@ -232,5 +237,3 @@ export default function ResetPasswordForm(): JSX.Element {
     </main>
   );
 }
-
-    
