@@ -1,4 +1,4 @@
-
+// src/features/auth/components/reset-password-form.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,7 +10,7 @@ import { updateUserPassword } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/features/auth/hooks"; // Import the main useAuth hook
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -33,12 +33,12 @@ function SubmitButton() {
  * Uses a Server Action (`updateUserPassword`) to handle password updates.
  * Displays success or error messages using toasts.
  * Includes password visibility toggles.
+ * Relies on `useAuth` for session validation before rendering the form.
  *
  * @returns {JSX.Element} The reset password form component.
  */
 export default function ResetPasswordForm(): JSX.Element {
   const router = useRouter();
-  const supabase = createClient();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get("email");
@@ -47,21 +47,21 @@ export default function ResetPasswordForm(): JSX.Element {
   const [state, formAction] = useActionState(updateUserPassword, initialState);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  const { user, isAuthenticated, isLoading: isAuthLoading, error: authError } = useAuth();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
+    if (!isAuthLoading) {
+      if (!isAuthenticated || authError) {
         toast({
           title: "Authentication Error",
-          description: "You are not authorized to update password. Please try the reset process again.",
+          description: authError?.message || "You are not authorized to update password. Please try the reset process again.",
           variant: "destructive",
         });
         router.push('/forgot-password');
       }
-      setIsLoadingUser(false);
-    });
-  }, [supabase, router, toast]);
+    }
+  }, [isAuthLoading, isAuthenticated, authError, router, toast]);
 
   useEffect(() => {
     if (state?.message) {
@@ -79,14 +79,24 @@ export default function ResetPasswordForm(): JSX.Element {
         });
       }
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
-  if (isLoadingUser) {
+  if (isAuthLoading) {
     return (
       <main className="flex flex-col items-center justify-center min-h-screen p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading...</p>
+        <p className="mt-4 text-muted-foreground">Verifying session...</p>
       </main>
+    );
+  }
+
+  if (!isAuthenticated && !isAuthLoading) {
+    // This case should ideally be handled by the useEffect redirect,
+    // but return null or a message to prevent rendering the form.
+    return (
+        <main className="flex flex-col items-center justify-center min-h-screen p-4">
+            <p className="text-muted-foreground">Redirecting...</p>
+        </main>
     );
   }
 
@@ -222,3 +232,5 @@ export default function ResetPasswordForm(): JSX.Element {
     </main>
   );
 }
+
+    
