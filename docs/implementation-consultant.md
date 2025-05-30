@@ -7,25 +7,22 @@ This document outlines the step-by-step plan to refactor the PassForge applicati
 
 This phase focuses on restructuring how authentication state (session, user object, profile) is managed and accessed in client components.
 
-### Task 1.1: Create AuthSessionProvider (React Context)
-*   [ ] **Create `src/components/providers/auth-session-provider.tsx`**:
-    *   This will be a Client Component (`'use client'`).
-    *   It will use the Supabase browser client (`@/lib/supabase/client.ts`).
-    *   It will initialize a Supabase `onAuthStateChange` listener.
-    *   It will provide the raw Supabase `User` object and an `isLoading` state (for the initial session check and auth changes) via React Context.
-    *   **Context Value**: `{ user: User | null, isLoading: boolean, error: Error | null }`
-    *   **Responsibility**: Make the raw Supabase user session and its loading status available to its children.
+### [x] Task 1.1: Create AuthSessionProvider (React Context)
+*   **File**: `src/providers/auth-session-provider.tsx`
+*   **Details**: Client Component (`'use client'`). Uses Supabase browser client, `onAuthStateChange`. Provides raw Supabase `User`, `isLoading` (for initial session check), and `error` via Context.
+*   **Status**: Implemented.
 
-### Task 1.2: Update Root Layout
-*   [ ] **Modify `src/app/layout.tsx`**:
-    *   Remove the existing `AuthStateProvider` (which uses Zustand).
-    *   Wrap the application with the new `AuthSessionProvider`.
+### [x] Task 1.2: Update Root Layout
+*   **File**: `src/app/layout.tsx`
+*   **Details**: Removed old Zustand-based `AuthStateProvider`. Wrapped application with new `AuthSessionProvider`.
+*   **Status**: Implemented.
 
-### Task 1.3: Create Service and Query for User Profile
-*   [ ] **Define `UserProfile` Schema**:
-    *   Ensure `src/features/profile/schemas/profile.schema.ts` accurately defines the `UserProfile` type. This schema should represent the data fetched for a user profile, combining information from `auth.users` and your `profiles` table.
+### [x] Task 1.3: Create Service and Query for User Profile
+*   **[x] Define `UserProfile` Schema**:
+    *   **File**: `src/features/user-profile/schemas/profile.schema.ts`
+    *   **Details**: Defines `UserProfileSchema` and `UserProfile` type, accurately representing the data from your `profiles` table and relevant `auth.users` data.
         ```typescript
-        // src/features/profile/schemas/profile.schema.ts
+        // src/features/user-profile/schemas/profile.schema.ts
         import { z } from 'zod';
 
         export const UserProfileSchema = z.object({
@@ -51,97 +48,75 @@ This phase focuses on restructuring how authentication state (session, user obje
 
         export type UserProfile = z.infer<typeof UserProfileSchema>;
         ```
-*   [ ] **Create `getProfileByUserId` Service**:
-    *   Ensure `src/features/profile/services/profile.service.ts` has a function `getProfileByUserId(userId: string): Promise<{ data: UserProfile | null; error: Error | null }>` (or similar) that fetches data from the `profiles` table and merges it with relevant data from `auth.users` (like email). This service uses the server Supabase client. It should select all relevant fields from your `profiles` table as defined in the schema above.
-*   [ ] **Create `getCurrentUserProfile` Server Action (Query Function for TanStack Query)**:
-    *   Ensure `src/features/profile/queries/profile.queries.ts` has a Server Action `getCurrentUserProfile(): Promise<UserProfile>` that:
-        *   Gets the authenticated user ID.
-        *   Calls `getProfileByUserId`.
-        *   Returns the `UserProfile` (matching the detailed schema) or throws an error.
+    *   **Status**: Implemented.
+*   **[x] Create `getProfileByUserId` Service**:
+    *   **File**: `src/features/user-profile/services/profile.service.ts`
+    *   **Details**: Fetches data from the `profiles` table and merges with relevant data from `auth.users` (like email). Uses server Supabase client. Selects all relevant fields as per `UserProfileSchema`.
+    *   **Status**: Implemented.
+*   **[x] Create `getCurrentUserProfile` Server Action (Query Function for TanStack Query)**:
+    *   **File**: `src/features/user-profile/queries/profile.queries.ts`
+    *   **Details**: Server Action that gets the authenticated user ID, calls `getProfileByUserId`, returns `UserProfile` or throws error.
+    *   **Status**: Implemented.
 
-### Task 1.4: Create `useUserProfileQuery` Hook
-*   [ ] **Create `src/features/profile/hooks/use-user-profile-query.ts`**:
-    *   This client-side hook will use TanStack Query's `useQuery`.
-    *   `queryKey`: `['userProfile', userId]` (where `userId` comes from the session context).
-    *   `queryFn`: `getCurrentUserProfile` (the Server Action).
-    *   It should handle `enabled` state based on user authentication status.
-    *   Returns `{ profile: UserProfile | undefined, isLoading: profileIsLoading, isError: profileIsError, error: profileError }`.
-*   [ ] **Create `src/features/profile/hooks/index.ts`** (if not exists) and export `useUserProfileQuery`.
+### [x] Task 1.4: Create `useUserProfileQuery` Hook
+*   **File**: `src/features/user-profile/hooks/use-user-profile-query.ts`
+*   **Details**: Client-side hook using TanStack Query's `useQuery`. `queryKey: ['userProfile', userId]`, `queryFn: getCurrentUserProfile`. Handles `enabled` state.
+*   **Barrel File**: `src/features/user-profile/hooks/index.ts` exports the hook.
+*   **Status**: Implemented.
 
-### Task 1.5: Create the New `useAuth` Hook
-*   [ ] **Create `src/features/auth/hooks/use-auth.ts`**:
-    *   This will be a client-side hook.
-    *   It will consume the `AuthSessionContext` to get the raw `user`, `isLoading` (session loading), and `sessionError`.
-    *   It will call `useUserProfileQuery` to get `profile` (the detailed UserProfile), `profileIsLoading`, `profileIsError`, `profileError`.
-    *   It will combine these states:
-        *   `isAuthenticated`: Derived from `!!user`.
-        *   `isLoading`: True if session is loading OR profile is loading (if user is authenticated).
-        *   `user`: The raw Supabase user object.
-        *   `profile`: The fetched detailed user profile data.
-        *   `error`: Combined error state from session or profile fetching.
-    *   **Return Value**: `{ user, profile, isAuthenticated, isLoading, error }`.
-*   [ ] **Update `src/features/auth/hooks/index.ts`** to export the new `useAuth`.
+### [x] Task 1.5: Create the New `useAuth` Hook
+*   **File**: `src/features/auth/hooks/use-auth.ts`
+*   **Details**: Client-side hook. Consumes `AuthSessionContext`. Calls `useUserProfileQuery`. Combines states: `user`, `profile`, `authUser`, `isAuthenticated` (stricter: session AND profile loaded), `isLoadingAuth` (composite), `isSessionLoading`, `sessionError`, `isProfileLoading`, `profileError`.
+*   **Barrel File**: `src/features/auth/hooks/index.ts` exports the new `useAuth`.
+*   **Status**: Implemented.
 
-### Task 1.6: Refactor Zustand Store (`useAuthStore`)
-*   [ ] **Modify `src/stores/auth.store.ts`**:
-    *   This store will now be for **minimal, purely client-side global state not directly tied to auth session or server-fetched profile**.
-    *   Remove `user`, `profile`, `isAuthenticated`, `isLoading` (related to auth), `error` (related to auth).
-    *   Remove `setUserOnly`, `fetchUserProfile`, `clearAuth`, `setLoading`, `setError` actions.
-    *   Remove `initializeAuthListener`.
-    *   **Purpose**: This store can remain for future use (e.g., theme settings, global UI states not managed by server data). If no immediate use, consider removing it entirely or commenting it out. For this plan, we'll assume it's simplified for now.
+### [x] Task 1.6: Refactor Zustand Store (`useAuthStore`)
+*   **File**: `src/stores/auth.store.ts`
+*   **Details**: This store is now for **minimal, purely client-side global state not directly tied to auth session or server-fetched profile**. Removed `user`, `profile`, `isAuthenticated`, `isLoading` (auth-related), `error` (auth-related), and related actions/listener. It's now a placeholder for other global states (e.g., theme settings, UI toggles). The concept of "slices" is relevant if this store grows with *other* types of global state.
+*   **Status**: Implemented.
 
-### Task 1.7: Update Components Using Auth State
-*   [ ] **Modify `src/features/homepage/components/header.tsx`**:
-    *   Import and use the new `useAuth` hook from `@/features/auth/hooks`.
-    *   Adapt its conditional rendering logic based on the state provided by the new `useAuth` hook (e.g., displaying `profile.firstName` or `profile.avatarUrl`).
-*   [ ] **Review and update any other components** that might have been using the old Zustand-based `useAuth` hook.
+### [x] Task 1.7: Update Components Using Auth State
+*   **File**: `src/features/homepage/components/hero-header/hero-header.tsx` (and its `mobile-menu.tsx`)
+*   **Details**: Uses the new `useAuth` hook from `@/features/auth/hooks`. Adapts conditional rendering based on the state provided by `useAuth`. Handles display name and avatar using `profile` and fallback to `user.user_metadata`.
+*   **Status**: Implemented.
 
 ## Phase 2: Implement TanStack Query for Data Fetching (General)
 
-This phase ensures TanStack Query is properly set up for all server state management.
+### [x] Task 2.1: Setup QueryClientProvider
+*   **File**: `src/providers/query-client-provider.tsx` (moved from `src/components/providers/`)
+*   **Details**: Client component initializes `QueryClient` (using `React.useState`) and wraps children with `QueryClientProvider`. Includes `ReactQueryDevtools`.
+*   **File**: `src/app/layout.tsx`
+*   **Details**: Correctly adds `QueryClientProvider` to wrap the application.
+*   **Status**: Implemented and verified.
 
-### Task 2.1: Setup QueryClientProvider
-*   [ ] **Create `src/components/providers/query-provider.tsx`**:
-    *   This client component initializes `QueryClient` and wraps children with `QueryClientProvider`.
-    *   Include `ReactQueryDevtools` for development.
-*   [ ] **Update `src/app/layout.tsx`**:
-    *   Add `QueryProvider` to wrap the application, likely outside or as a sibling to `AuthSessionProvider`.
-
-### Task 2.2: Review Existing Data Fetching
-*   [ ] Identify any other places where data is fetched directly (e.g., in Server Components or client components using `useEffect` + `fetch`) that should be migrated to TanStack Query using Server Actions as query functions. (Currently, our main data fetching related to auth is the profile).
+### [x] Task 2.2: Review Existing Data Fetching
+*   **Details**: Main user-related data fetching (profile) is migrated to TanStack Query via `useUserProfileQuery`. Other data fetching needs can follow this pattern.
+*   **Status**: Implemented.
 
 ## Phase 3: Code Cleanup and Documentation Update
 
-### Task 3.1: Remove Redundant Code
-*   [ ] If `src/stores/auth.store.ts` is no longer needed (after its auth-related parts are removed), consider deleting it.
-*   [ ] Delete the old `AuthStateProvider` (if it was a separate file and the new one from Task 1.1 replaces its role in the layout).
+### [x] Task 3.1: Remove Redundant Code
+*   **Details**: `src/components/providers/auth-state-provider.tsx` (old Zustand provider) was confirmed deleted. `src/stores/auth.store.ts` refactored. Old provider files in `src/components/providers/` were moved to `src/providers/`, and the old directory was confirmed deleted.
+*   **Status**: Implemented.
 
-### Task 3.2: Update Project Documentation
-*   [ ] **Modify `docs/project-overview.md`**:
-    *   Update sections on authentication flow to reflect the new `useAuth` hook, `AuthSessionProvider`, and the roles of Context/React Query.
-*   [ ] **Modify `docs/integrating-state-and-data-fetching.md`**:
-    *   Rewrite this document to reflect the new primary approach (Context + React Query for auth state and profile).
-    *   Clarify Zustand's role for non-server, non-auth-session global state.
-*   [ ] **Modify `docs/adding-new-features.md`**:
-    *   Ensure the "User Profile Page" example aligns with the new `useAuth` hook and data fetching patterns, reflecting the detailed `UserProfile` schema.
-*   [ ] **Modify `docs/supabase-client-deep-dive.md`**:
-    *   Ensure it accurately reflects how `AuthSessionProvider` uses the client-side Supabase instance.
+### [ ] Task 3.2: Update Project Documentation
+*   **Files**: `docs/project-overview.md`, `docs/integrating-state-and-data-fetching.md`, `docs/supabase-client-deep-dive.md`, `docs/adding-new-features.md`.
+*   **Details**: Ensure all docs reflect the new `useAuth` hook, `AuthSessionProvider`, `useUserProfileQuery`, service layer, action layer, and the roles of Context/React Query and Zustand.
+*   **Status**: In progress / Last updated with these changes.
 
 ## Phase 4: Testing
 
-### Task 4.1: Thoroughly Test Authentication Flows
+### [ ] Task 4.1: Thoroughly Test Authentication Flows
 *   [ ] Test registration.
 *   [ ] Test login.
 *   [ ] Test logout.
 *   [ ] Test password reset.
 *   [ ] Test email confirmation.
 *   [ ] Verify conditional UI rendering based on auth state in `HomepageHeader` and any other relevant components.
-*   [ ] Verify profile data is displayed correctly using the new `useAuth` hook and detailed `UserProfile` structure (if applicable in current UI).
+*   [ ] Verify profile data is displayed correctly using the new `useAuth` hook and detailed `UserProfile` structure.
 
-### Task 4.2: Test Data Fetching with TanStack Query
+### [ ] Task 4.2: Test Data Fetching with TanStack Query
 *   [ ] Verify profile data fetching, loading states, and error states for the detailed `UserProfile`.
 *   [ ] Check React Query Devtools for query caching and behavior.
 
-This plan provides a structured approach to refactoring your application. Each task can be broken down further as needed.
-    
-
+This plan provides a structured approach to refactoring your application.

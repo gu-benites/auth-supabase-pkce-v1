@@ -144,7 +144,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
 
 *   **Purpose:** Middleware runs on the server before a request is processed for matching paths. In this project, it's used for **session management and route protection**.
 *   **Structure:**
-    *   `src/middleware.ts`: A lean entry point that calls `updateSession`.
+    *   `src/middleware.ts`: A lean entry point that calls `updateSession` from `src/features/auth/utils/middleware.utils.ts`.
     *   `src/features/auth/utils/middleware.utils.ts`: Contains the `updateSession` function which:
         *   Creates a Supabase server client instance using `createServerClient` (similar to `/src/lib/supabase/server.ts`), configuring cookie handling based on the incoming `request` and the outgoing `response`.
         *   **`await supabase.auth.getUser()`**: This is the most critical line for auth. It attempts to get the current session and user. If the access token is expired but a valid refresh token exists, Supabase will automatically refresh the session and update the cookies. The `setAll` function within the `cookies` config ensures these new session cookies are attached to the `response`.
@@ -168,7 +168,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
     `import { createClient } from '@/lib/supabase/client';`
 *   **Server-side (`/src/lib/supabase/server.ts`):** Always import directly:
     `import { createClient } from '@/lib/supabase/server';`
-*   The barrel file `src/lib/supabase/index.ts` has been removed to prevent confusion.
+*   The barrel file `src/lib/supabase/index.ts` has been correctly updated to only export client-side utilities, thus preventing confusion.
 
 ## Common Pitfalls for Junior Developers:
 
@@ -185,8 +185,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
 4.  **Middleware Configuration:** Not understanding that the middleware is essential for keeping sessions alive and for route protection.
 5.  **`AuthSessionProvider` (`@/providers/auth-session-provider.tsx`):**
     *   This provider is responsible for initializing the client-side Supabase instance and listening to `onAuthStateChange`.
-    *   It's crucial that the `supabaseClient` within this provider is instantiated correctly (e.g., using `useState(() => createClient())`) to ensure a stable instance across renders.
+    *   It's crucial that the `supabaseClient` within this provider is instantiated correctly (e.g., using `useState(() => createClient())` from `@/lib/supabase/client`) to ensure a stable instance across renders.
     *   Components relying on client-side auth state (like those using the `useAuth` hook) depend on this provider working correctly.
 
 By understanding these distinctions and following the patterns in this project, developers can confidently work with Supabase authentication in a Next.js App Router environment.
-

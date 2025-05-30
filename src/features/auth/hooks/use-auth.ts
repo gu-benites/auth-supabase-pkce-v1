@@ -2,14 +2,14 @@
 'use client';
 
 import { useAuthSession } from '@/providers';
-import { useUserProfileQuery } from '@/features/profile/hooks/use-user-profile-query';
-import { type UserProfile } from '@/features/profile/schemas/profile.schema';
+import { useUserProfileQuery } from '@/features/user-profile/hooks/use-user-profile-query';
+import { type UserProfile } from '@/features/user-profile/schemas/profile.schema';
 import { type User } from '@supabase/supabase-js';
 
 interface AuthState {
-  user: User | null; // Raw Supabase user object from session
-  profile: UserProfile | undefined; // Detailed user profile data from 'profiles' table
-  authUser: (User & UserProfile) | null; // Combined user and profile data, available when fully authenticated
+  user: User | null;
+  profile: UserProfile | undefined;
+  authUser: (User & UserProfile) | null; // Combined user and profile, available when fully authenticated
   isAuthenticated: boolean; // Stricter: true only if session exists AND profile is loaded
   isLoadingAuth: boolean; // Composite: true if session is loading OR (session exists AND profile is loading)
   isSessionLoading: boolean; // Specifically for AuthSessionProvider's initial session check
@@ -20,15 +20,20 @@ interface AuthState {
 
 /**
  * The primary hook for accessing authentication state and user profile information.
- * It combines the session state (raw Supabase user) from AuthSessionContext
+ * It combines the session state (raw Supabase user from AuthSessionProvider)
  * with the detailed user profile fetched via TanStack Query (useUserProfileQuery).
+ *
+ * - `isLoadingAuth`: Composite flag. True if the session is loading OR (if session exists) the profile is loading.
+ * - `isSessionLoading`: True only while the AuthSessionProvider is determining the initial Supabase session.
+ * - `isAuthenticated`: Stricter flag. True only if a Supabase session exists AND the detailed user profile has been successfully loaded.
+ * - `authUser`: Combined object of Supabase user and detailed profile, available when `isAuthenticated` (stricter definition) is true.
  *
  * @returns {AuthState} An AuthState object with granular loading and authentication states.
  */
 export const useAuth = (): AuthState => {
   const { 
     user: sessionUser, 
-    isLoading: currentIsSessionLoading,
+    isLoading: currentIsSessionLoading, 
     error: currentSessionError 
   } = useAuthSession();
   
@@ -36,53 +41,43 @@ export const useAuth = (): AuthState => {
     profile: profileData, 
     isLoading: currentIsProfileLoading, 
     isError: currentIsProfileError, 
-    error: currentProfileError 
+    error: currentProfileErrorObj // Renamed to avoid conflict with error from AuthSessionContext
   } = useUserProfileQuery({
     userId: sessionUser?.id,
   });
 
-  // Is the basic Supabase session authenticated and loaded?
-  const isAuthenticatedUserSession = !!sessionUser && !currentIsSessionLoading && !currentSessionError;
+  // Basic session check: Does a Supabase user object exist and is session loading complete?
+  const hasValidSession = !!sessionUser && !currentIsSessionLoading && !currentSessionError;
 
-  // Is the detailed profile loaded and ready?
-  const isProfileReady = !!profileData && !currentIsProfileLoading && !currentProfileError;
+  // Profile check: Is the detailed profile loaded and ready?
+  const isProfileReady = !!profileData && !currentIsProfileLoading && !currentIsProfileError;
   
   // Stricter isAuthenticated: session must exist AND profile must be loaded and ready.
-  const isAuthenticated = isAuthenticatedUserSession && isProfileReady;
+  const finalIsAuthenticated = hasValidSession && isProfileReady;
 
   // isLoadingAuth: True if session is loading OR (session is established AND profile is still loading).
-  const isLoadingAuth = currentIsSessionLoading || (!!sessionUser && currentIsProfileLoading);
+  const finalIsLoadingAuth = currentIsSessionLoading || (hasValidSession && currentIsProfileLoading);
 
-  let authUser: (User & UserProfile) | null = null;
-  if (isAuthenticated && sessionUser && profileData) {
+  let finalAuthUser: (User & UserProfile) | null = null;
+  if (finalIsAuthenticated && sessionUser && profileData) {
     // Ensure id and email from sessionUser (auth.users) take precedence
-    // as they are the source of truth for identity.
-    authUser = { 
+    finalAuthUser = { 
       ...sessionUser, 
       ...profileData, 
       id: sessionUser.id, 
       email: sessionUser.email 
     };
   }
-
-  // Composite error: Prioritize sessionError, then profileError if session was okay.
-  let compositeError: Error | null = null;
-  if (currentSessionError) {
-    compositeError = currentSessionError;
-  } else if (isAuthenticatedUserSession && currentIsProfileError && currentProfileError) {
-    // Only consider profileError if the session itself is fine
-    compositeError = currentProfileError;
-  }
-
+  
   return {
-    user: sessionUser, // Raw Supabase user
-    profile: profileData, // Detailed profile
-    authUser, // Combined user and profile when fully authenticated
-    isAuthenticated, // Stricter: session AND profile ready
-    isLoadingAuth, // Composite loading: session OR (session + profile)
-    isSessionLoading: currentIsSessionLoading, // Session-specific loading
-    sessionError: currentSessionError, // Session-specific error
-    isProfileLoading: currentIsProfileLoading, // Profile-specific loading
-    profileError: currentProfileError, // Profile-specific error
+    user: sessionUser,
+    profile: profileData,
+    authUser: finalAuthUser,
+    isAuthenticated: finalIsAuthenticated,
+    isLoadingAuth: finalIsLoadingAuth,
+    isSessionLoading: currentIsSessionLoading,
+    sessionError: currentSessionError,
+    isProfileLoading: currentIsProfileLoading,
+    profileError: currentProfileErrorObj, // Use the renamed error variable
   };
 };

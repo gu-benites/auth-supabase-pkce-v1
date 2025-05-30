@@ -28,7 +28,7 @@ Before proceeding, ensure you understand:
 *   (Future) As an authenticated user, I want to edit my profile information so that I can keep my details up-to-date.
 
 ### B. Data Model & Schema (`UserProfile`)
-The profile page will display data defined by the `UserProfileSchema` (`@/features/profile/schemas/profile.schema.ts`). This schema includes fields like:
+The profile page will display data defined by the `UserProfileSchema` (`@/features/user-profile/schemas/profile.schema.ts`). This schema includes fields like:
 *   `id` (UUID)
 *   `email` (from `auth.users`)
 *   `firstName`
@@ -42,7 +42,7 @@ The profile page will display data defined by the `UserProfileSchema` (`@/featur
 *   Stripe and subscription-related fields
 *   `createdAt`, `updatedAt`
 
-This detailed schema is defined in `src/features/profile/schemas/profile.schema.ts` and aligns with the `profiles` table structure outlined in `docs/implementation-consultant.md`.
+This detailed schema is defined in `src/features/user-profile/schemas/profile.schema.ts` and aligns with the `profiles` table structure outlined in `docs/implementation-consultant.md`.
 
 ## IV. Step 2: Supabase Database Setup (Conceptual Review)
 
@@ -59,10 +59,10 @@ Ensure your Supabase database has the `profiles` table as defined (or similar to
 
 The core backend logic for fetching the user profile is already in place as per `docs/implementation-consultant.md`:
 
-### A. Zod Schema for Profile Data (`src/features/profile/schemas/profile.schema.ts`)
+### A. Zod Schema for Profile Data (`src/features/user-profile/schemas/profile.schema.ts`)
 *   This file defines `UserProfileSchema` and the `UserProfile` type. It should match your `profiles` table structure.
 
-### B. Service Function to Fetch Profile Data (`src/features/profile/services/profile.service.ts`)
+### B. Service Function to Fetch Profile Data (`src/features/user-profile/services/profile.service.ts`)
 *   The `getProfileByUserId(userId: string)` function:
     *   Is a Server Action (`'use server';`).
     *   Uses the server-side Supabase client.
@@ -70,7 +70,7 @@ The core backend logic for fetching the user profile is already in place as per 
     *   Merges this data to match the `UserProfileSchema`.
     *   Returns `{ data: UserProfile | null; error: Error | null }`.
 
-### C. Server Action (Query Function for TanStack Query - `src/features/profile/queries/profile.queries.ts`)
+### C. Server Action (Query Function for TanStack Query - `src/features/user-profile/queries/profile.queries.ts`)
 *   The `getCurrentUserProfile(): Promise<UserProfile>` Server Action:
     *   Gets the authenticated user's ID.
     *   Calls `getProfileByUserId`.
@@ -83,9 +83,9 @@ The core backend logic for fetching the user profile is already in place as per 
 **Create `src/app/profile/page.tsx` (if not already present or adapt if it exists):**
 ```tsx
 // src/app/profile/page.tsx
-import { ProfileDisplay } from '@/features/profile/components';
+import { ProfileDisplay } from '@/features/user-profile/components';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { getCurrentUserProfile } from '@/features/profile/queries';
+import { getCurrentUserProfile } from '@/features/user-profile/queries';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server'; // For server-side auth check
 
@@ -127,9 +127,9 @@ export default async function ProfilePage() {
 ### B. Create the Profile Display Component
 This component uses the `useAuth` hook to get both the raw user and the detailed profile.
 
-**Create/Update `src/features/profile/components/profile-display.tsx`:**
+**Create/Update `src/features/user-profile/components/profile-display.tsx`:**
 ```tsx
-// src/features/profile/components/profile-display.tsx
+// src/features/user-profile/components/profile-display.tsx
 'use client';
 
 import { useAuth } from '@/features/auth/hooks'; // The composite auth hook
@@ -143,18 +143,20 @@ export function ProfileDisplay() {
   // useAuth provides the composite state:
   // user: raw Supabase user from AuthSessionProvider
   // profile: detailed UserProfile from useUserProfileQuery (TanStack Query)
-  // isAuthenticated: boolean
-  // isLoading: composite loading (session OR profile if authenticated)
-  // error: composite error
+  // authUser: combined user and profile when fully authenticated
+  // isAuthenticated: boolean (stricter: session AND profile loaded)
+  // isLoadingAuth: composite loading (session OR profile if authenticated)
   // isSessionLoading: boolean for session provider's initial load
   // sessionError: error from session provider
   const {
     user,
     profile,
-    isAuthenticated,
-    isLoading, // Composite loading
-    error,     // Composite error
+    // authUser, // Use this if you need combined object directly
+    isAuthenticated, // Use this to ensure profile is also loaded
+    isLoadingAuth, // Composite loading: session OR (session + profile)
     isSessionLoading, // Use this for the initial "Am I logged in?" check
+    sessionError, // For session specific errors
+    profileError, // For profile specific errors
   } = useAuth();
 
   if (isSessionLoading) { // Show loading while session is being determined
@@ -178,7 +180,18 @@ export function ProfileDisplay() {
     );
   }
 
-  if (!isAuthenticated) { // After session loading, check if actually authenticated
+  if (sessionError) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Session Error</AlertTitle>
+        <AlertDescription>
+          {sessionError.message || 'An error occurred while verifying your session.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  
+  if (!user && !isSessionLoading) { // User not logged in, session check complete
     return (
       <Alert variant="destructive">
         <AlertTitle>Not Authenticated</AlertTitle>
@@ -189,10 +202,9 @@ export function ProfileDisplay() {
     );
   }
 
-  // At this point, session is resolved and user is authenticated.
-  // Now check profile-specific loading or errors.
-  // The 'isLoading' from useAuth includes profile loading.
-  if (isLoading && !profile) { // Still loading profile data
+  // At this point, session is resolved and user object exists.
+  // Now check profile-specific loading or errors, or if profile is ready (via isAuthenticated).
+  if (isLoadingAuth && user) { // Still loading profile data, or initial auth loading (which includes profile)
      return (
       <Card className="w-full max-w-lg mx-auto animate-pulse">
         <CardHeader>
@@ -202,35 +214,47 @@ export function ProfileDisplay() {
         <CardContent className="space-y-6">
             <p className="text-muted-foreground">Loading profile details...</p>
           {/* Skeletons for profile specific fields */}
+            <div className="flex items-center space-x-4">
+              <Skeleton className="h-24 w-24 rounded-full" />
+              <div className="space-y-2 flex-grow">
+                <Skeleton className="h-6 w-4/5" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            </div>
         </CardContent>
       </Card>
     );
   }
   
-  if (error && !profile) { // Check composite error if profile is still missing
+  if (profileError && user) { // Check profileError if user session is valid
     return (
       <Alert variant="destructive">
-        <AlertTitle>Error Loading Profile</AlertTitle>
+        <AlertTitle>Error Loading Profile Data</AlertTitle>
         <AlertDescription>
-          {error.message || 'An unknown error occurred while fetching your profile.'}
+          {profileError.message || 'An unknown error occurred while fetching your profile details.'}
         </AlertDescription>
       </Alert>
     );
   }
 
-  if (!profile) { // Should be covered by isLoading or error, but as a fallback
+  if (!isAuthenticated && user) { // Session is valid, but profile isn't loaded (covered by isLoadingAuth or profileError usually)
       return (
           <Card className="w-full max-w-lg mx-auto">
               <CardHeader>
-                  <CardTitle>Profile Not Found</CardTitle>
-                  <CardDescription>We couldn&apos;t find your profile details.</CardDescription>
+                  <CardTitle>Profile Not Yet Available</CardTitle>
+                  <CardDescription>Your profile details are being prepared or couldn't be loaded.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <p>It seems your profile is not yet complete or there was an issue retrieving it. Please try again later or contact support if the issue persists.</p>
+                  <p>Please try again shortly. If the issue persists, contact support.</p>
               </CardContent>
           </Card>
       );
   }
+
+  if (!profile) { // Fallback if none of the above caught it (should be rare with new useAuth logic)
+    return <p>Profile data not found.</p>;
+  }
+
 
   // Helper to get initials for Avatar Fallback
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
@@ -318,29 +342,29 @@ export function ProfileDisplay() {
   );
 }
 ```
-**Create `src/features/profile/components/index.ts` (Barrel File if not exists):**
+**Create `src/features/user-profile/components/index.ts` (Barrel File if not exists):**
 ```typescript
-// src/features/profile/components/index.ts
+// src/features/user-profile/components/index.ts
 export * from './profile-display';
 ```
 
 ## VII. Step 6: Navigation
 
-Add a link to the new profile page in a relevant navigation component (e.g., `src/features/homepage/components/header.tsx`):
+Add a link to the new profile page in a relevant navigation component (e.g., `src/features/homepage/components/hero-header/hero-header.tsx`):
 
 ```tsx
-// Example modification in src/features/homepage/components/header.tsx
+// Example modification in src/features/homepage/components/hero-header/hero-header.tsx
 // ... other imports
 import { useAuth } from '@/features/auth/hooks';
 
-export function HomepageHeader() {
-  const { isAuthenticated, isLoading } = useAuth(); // Get auth state
+export function HeroHeader() {
+  const { user, isSessionLoading } = useAuth(); // Get auth state
 
   return (
     <header /* ... */ >
       <nav /* ... */ >
         {/* ... other nav items ... */}
-        {!isLoading && isAuthenticated && (
+        {!isSessionLoading && !!user && ( // Show if session is loaded and user exists
             <Button variant="secondary" asChild size="sm">
                 <Link href="/profile">Profile</Link>
             </Button>

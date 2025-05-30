@@ -123,12 +123,12 @@ Client components access authentication status, the raw Supabase user object, an
 
 This hook is the central point for UI components to understand the user's authentication status. It combines:
 1.  **Raw Session Data (from React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to provide the live Supabase `User` object and the session's initial loading status (`isSessionLoading`).
-2.  **Detailed User Profile (from TanStack Query):** The `useUserProfileQuery` hook (`@/features/profile/hooks/use-user-profile-query.ts`) uses TanStack Query to fetch detailed user profile information from the `profiles` table via a Server Action.
+2.  **Detailed User Profile (from TanStack Query):** The `useUserProfileQuery` hook (`@/features/user-profile/hooks/use-user-profile-query.ts`) uses TanStack Query to fetch detailed user profile information from the `profiles` table via a Server Action.
 
 The `useAuth` hook returns a comprehensive state object, including:
 *   `user`: The raw Supabase user object (or `null`).
 *   `profile`: The detailed `UserProfile` object (or `undefined` if not loaded/found).
-*   `authUser`: A combined object of `user` and `profile` data, available when fully authenticated.
+*   `authUser`: A combined object of `user` and `profile` data, available when the stricter `isAuthenticated` is true.
 *   `isAuthenticated`: A **stricter** boolean flag that is true only if a Supabase session exists AND the detailed user profile has been successfully loaded.
 *   `isLoadingAuth`: A composite boolean, true if the session is loading OR (if a session user exists) the profile is still loading.
 *   `isSessionLoading`: A boolean indicating if the raw Supabase session is still being determined by `AuthSessionProvider`. Components use this for initial UI loading states (e.g., showing a spinner before login/logout buttons appear).
@@ -176,9 +176,9 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 - **In this project:**
     - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions.
     - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. Marked with `'use server';` as it's part of the server-side execution boundary and called by Server Actions.
-    - `src/features/profile/queries/profile.queries.ts`: Contains Server Actions for fetching profile data.
-    - `src/features/profile/services/profile.service.ts`: Marked with `'use server';`.
-    - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`, `src/features/profile/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
+    - `src/features/user-profile/queries/profile.queries.ts`: Contains Server Actions for fetching profile data.
+    - `src/features/user-profile/services/profile.service.ts`: Marked with `'use server';`.
+    - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`, `src/features/user-profile/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
 
 ### Route Handlers (`route.ts`)
 - **Purpose:** Define API endpoints or server-side logic for specific URL paths (e.g., handling GET, POST requests).
@@ -223,7 +223,7 @@ The project follows a feature-based organization within the `src` directory.
             - `use-auth.ts`
         - `utils/`: Utility functions specific to auth features.
             - `middleware.utils.ts`
-    - **`profile/`**: Feature for user profile data.
+    - **`user-profile/`**: Feature for user profile data.
         - `hooks/`: Custom hooks like `use-user-profile-query.ts`.
         - `queries/`: Server Actions for fetching profile data (`profile.queries.ts`).
         - `schemas/`: Zod schemas for profile data (`profile.schema.ts`).
@@ -231,25 +231,49 @@ The project follows a feature-based organization within the `src` directory.
     - **`homepage/`**: Components related to the main homepage.
         - `components/` (contains `hero-header/`, `hero-content/`, etc.)
 - **`/src/components/`**:
-    - `ui/`: Reusable ShadCN UI components.
-    - `icons/`: Custom SVG icon components.
+    *   `ui/`: Reusable ShadCN UI components.
+    *   `icons/`: Custom SVG icon components.
 - **`/src/providers/`**: Global React context providers.
-    - `auth-session-provider.tsx`
-    - `theme-provider.tsx`
-    - `query-client-provider.tsx`
+    *   `auth-session-provider.tsx`
+    *   `theme-provider.tsx`
+    *   `query-client-provider.tsx`
 - **`/src/lib/`**:
-    - `supabase/`: Supabase client initialization (`client.ts` for browser, `server.ts` for server-side).
-    - `utils.ts`: General utility functions.
+    *   `supabase/`: Supabase client initialization (`client.ts` for browser, `server.ts` for server-side).
+    *   `utils.ts`: General utility functions.
 - **`/src/hooks/`**:
-    - General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
+    *   General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
 - **`/src/stores/`**:
-    - `auth.store.ts`: Zustand store, now for minimal, non-auth related global client-side state.
+    *   `auth.store.ts`: Zustand store, now for minimal, non-auth related global client-side state.
 - **`/src/styles/`**:
-    - `globals.css`: Global styles and Tailwind CSS theme.
+    *   `globals.css`: Global styles and Tailwind CSS theme.
 - **`/src/middleware.ts`**:
-    - Next.js middleware entry point.
+    *   Next.js middleware entry point.
 
-## V. Adapting for Other Projects (Checklist)
+## V. Separation of Concerns: Auth vs. User Profile
+
+A key architectural decision in this project is the separation of `src/features/auth` and `src/features/user-profile`. This is not duplication but a deliberate separation for clarity and scalability:
+
+*   **`src/features/auth/`** handles the *mechanisms* of authentication:
+    *   Processes like sign-up, sign-in, sign-out, password reset.
+    *   Manages session state via `AuthSessionProvider` (React Context for raw Supabase session).
+    *   Provides the primary `useAuth` hook which *aggregates* session state and profile state for easy UI consumption.
+    *   Contains Server Actions, services, and Zod schemas directly related to these authentication *processes*.
+
+*   **`src/features/user-profile/`** manages application-specific *user data*:
+    *   This concerns data typically stored in a separate `profiles` table (e.g., custom avatar, role, subscription details, language preferences).
+    *   Includes `useUserProfileQuery` (TanStack Query) for fetching this detailed profile data.
+    *   Contains the Server Action, service, and Zod schema specific to the `profiles` table data structure and its retrieval.
+
+**Why this separation?**
+
+1.  **Modularity**: If your user profile management becomes complex (e.g., profile editing forms, different visibility settings, profile-specific API endpoints), this logic is neatly contained and won't bloat the core authentication feature.
+2.  **Clarity**: It's clear where to find logic related to the `profiles` database table versus logic related to Supabase's `auth.users` table and authentication flows.
+3.  **Reusability**: Other features (e.g., an admin panel needing to display user profiles) could interact with services/queries from `src/features/user-profile/` without needing to depend on the core authentication mechanisms if only profile data is required.
+4.  **`useAuth` as an Aggregator**: The `useAuth` hook acts as a facade, providing a unified interface for components to get both the basic Supabase user (from session) and the detailed application profile, abstracting away where each piece of data originates.
+
+This structure ensures that the core identity management (auth) is distinct from the management of application-specific user data attributes (user-profile), leading to a more maintainable and scalable codebase.
+
+## VI. Adapting for Other Projects (Checklist)
 
 1.  **Supabase Configuration:**
     - [ ] Ensure your new project has `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
@@ -265,8 +289,8 @@ The project follows a feature-based organization within the `src` directory.
     - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth-code-error/page.tsx`). If this page is within the `(auth)` group, it will inherit the auth layout.
 5.  **User Metadata & Profiles Table:**
     - [ ] If collecting different data at registration, update schemas in `src/features/auth/schemas/register.schema.ts` and the `signUpNewUser` action.
-    - [ ] Ensure your `profiles` table in Supabase matches the schema in `src/features/profile/schemas/profile.schema.ts` and RLS policies are correctly set up.
-    - [ ] Adapt `src/features/profile/services/profile.service.ts` if your table structure or data merging logic differs.
+    - [ ] Ensure your `profiles` table in Supabase matches the schema in `src/features/user-profile/schemas/profile.schema.ts` and RLS policies are correctly set up.
+    - [ ] Adapt `src/features/user-profile/services/profile.service.ts` if your table structure or data merging logic differs.
 6.  **Database Schema (RLS):**
     - [ ] Configure Row Level Security (RLS) policies in your Supabase database for all user-specific data tables.
 7.  **Review Site URL:**

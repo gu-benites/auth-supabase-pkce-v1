@@ -6,8 +6,8 @@ This document outlines the recommended approach for managing state and fetching 
 ## Core Principles:
 
 1.  **Raw Session State (React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to make the raw Supabase `User` object, initial session loading status (`isSessionLoading`), and session-related errors (`sessionError`) available throughout the application. This is the foundational layer for knowing if a Supabase session exists.
-2.  **Server State & Data Fetching (TanStack Query):** TanStack Query is the primary tool for fetching, caching, and synchronizing server state. This includes detailed user profiles (from your `profiles` table) and any other data retrieved from your backend (Supabase).
-3.  **Composite Auth State Hook (`useAuth`):** The `useAuth` hook (`@/features/auth/hooks/use-auth.ts`) acts as the main interface for client components to access comprehensive authentication information. It consumes the raw session from `AuthSessionProvider` and triggers the fetching of the detailed user profile using TanStack Query (via `useUserProfileQuery`). It provides various states like `user` (raw Supabase user), `profile` (detailed profile), `authUser` (combined user and profile), `isLoadingAuth` (composite loading), `isSessionLoading` (session-only loading), and a stricter `isAuthenticated` (session AND profile ready).
+2.  **Server State & Data Fetching (TanStack Query):** TanStack Query is the primary tool for fetching, caching, and synchronizing server state. This includes detailed user profiles (from your `profiles` table via `src/features/user-profile/hooks/use-user-profile-query.ts`) and any other data retrieved from your backend (Supabase).
+3.  **Composite Auth State Hook (`useAuth`):** The `useAuth` hook (`@/features/auth/hooks/use-auth.ts`) acts as the main interface for client components to access comprehensive authentication information. It consumes the raw session from `AuthSessionProvider` and triggers the fetching of the detailed user profile using TanStack Query (via `useUserProfileQuery`). It provides various states like `user` (raw Supabase user), `profile` (detailed profile), `authUser` (combined user and profile when fully authenticated), a stricter `isAuthenticated` (session AND profile ready), `isLoadingAuth` (composite loading), `isSessionLoading` (session-only loading), `sessionError`, `isProfileLoading`, and `profileError`.
 4.  **Minimal Global Client-Side State (Zustand):** Zustand (`@/stores/auth.store.ts`) is reserved for global client-side state that is *not* directly tied to server data or core authentication sessions (e.g., UI preferences, theme settings). Its role in direct auth state management has been significantly minimized.
 
 ## I. Authentication State Management
@@ -24,16 +24,16 @@ Client components should primarily use the **`useAuth` hook** (`@/features/auth/
     *   `isLoading` here specifically refers to the process of determining the initial session state.
 *   **Usage:** Wrapped around the application's main content within `src/app/layout.tsx`.
 
-### 2. `useUserProfileQuery` (TanStack Query Hook - `@/features/profile/hooks/use-user-profile-query.ts`)
+### 2. `useUserProfileQuery` (TanStack Query Hook - `@/features/user-profile/hooks/use-user-profile-query.ts`)
 *   **Purpose:** Fetches the detailed user profile data from the backend (your `profiles` table).
 *   **Implementation:**
     *   Client-side hook (`'use client'`).
     *   Uses TanStack Query's `useQuery`.
     *   `queryKey`: `['userProfile', userId]` (dynamically uses the authenticated user's ID).
-    *   `queryFn`: Calls the `getCurrentUserProfile` Server Action (`@/features/profile/queries/profile.queries.ts`), which in turn calls a service function (`@/features/profile/services/profile.service.ts`) to fetch data from your `profiles` table (and merges with `auth.users` data like email).
+    *   `queryFn`: Calls the `getCurrentUserProfile` Server Action (`@/features/user-profile/queries/profile.queries.ts`), which in turn calls a service function (`@/features/user-profile/services/profile.service.ts`) to fetch data from your `profiles` table (and merges with `auth.users` data like email).
     *   `enabled`: Typically enabled only when a user ID is available (i.e., user session is established).
     *   Manages its own loading, error, and data states for the profile fetching operation.
-*   **Schema**: Uses `UserProfileSchema` from `@/features/profile/schemas/profile.schema.ts` for data shape.
+*   **Schema**: Uses `UserProfileSchema` from `@/features/user-profile/schemas/profile.schema.ts` for data shape.
 
 ### 3. `useAuth` Hook (Composite Hook - `@/features/auth/hooks/use-auth.ts`)
 *   **Purpose:** Provides a unified and convenient way for components to access all relevant authentication and user information.
@@ -44,14 +44,14 @@ Client components should primarily use the **`useAuth` hook** (`@/features/auth/
     *   **Combines these states to provide**:
         *   `user`: The raw Supabase user object.
         *   `profile`: The detailed user profile data (from TanStack Query).
-        *   `authUser`: A combined object of `user` and `profile` data when both are successfully loaded.
+        *   `authUser`: A combined object of `user` and `profile` data, available when the stricter `isAuthenticated` is true.
         *   `isAuthenticated`: **Stricter definition.** Boolean, true only if a Supabase session exists AND the detailed user profile has been successfully loaded.
         *   `isLoadingAuth`: Composite boolean (true if session is loading OR (user session exists AND profile is loading)).
         *   `isSessionLoading`: Boolean reflecting only the `AuthSessionProvider`'s loading state for the raw session. **Crucial for UI to quickly show login/logout states.**
         *   `sessionError`: Error object reflecting only session provider errors.
         *   `isProfileLoading`: Boolean reflecting only the profile query's loading state.
         *   `profileError`: Error object reflecting only profile query errors.
-*   **Usage:** This is the **recommended hook** for most client components needing auth information. Components should decide which loading flag (`isSessionLoading` or `isLoadingAuth`) and which authentication flag (`!!user` or the stricter `isAuthenticated`) is most appropriate for their specific needs.
+*   **Usage:** This is the **recommended hook** for most client components needing auth information. Components should decide which loading flag (`isSessionLoading` or `isLoadingAuth`) and which authentication flag (`!!user` (for basic session check) or the stricter `isAuthenticated`) is most appropriate for their specific needs.
 
 **Example: `HomepageHeader` using the `useAuth` hook**
 ```tsx
@@ -65,20 +65,20 @@ import { Button, Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
 import { signOutUserAction } from '@/features/auth/actions';
 import { useAuth } from '@/features/auth/hooks'; // The composite auth hook
 
-export function HomepageHeader(): JSX.Element {
+export function HeroHeader(): JSX.Element {
   const { 
     user, // Raw Supabase user
     profile, 
     // authUser, // Combined, available if strict isAuthenticated is true
     // isAuthenticated, // Strict: true if session AND profile are loaded
-    // isLoadingAuth, // Composite: session OR (session + profile loading)
+    isLoadingAuth, // Composite: session OR (session + profile loading)
     isSessionLoading, // Use this for the initial "Am I logged in?" check
     // sessionError,
     // isProfileLoading,
     // profileError
   } = useAuth();
 
-  const currentIsAuthenticated = !!user; // Basic check: does a Supabase user object exist?
+  const currentIsAuthenticatedSession = !!user; // Basic check: does a Supabase user object exist?
 
   const getDisplayName = () => {
     if (profile?.firstName) return profile.firstName;
@@ -105,7 +105,7 @@ export function HomepageHeader(): JSX.Element {
       <nav className="flex items-center gap-2 sm:gap-4">
         {isSessionLoading ? ( // Use session-specific loading for main button block
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        ) : currentIsAuthenticated ? ( // Basic check for session existence
+        ) : currentIsAuthenticatedSession ? ( // Basic check for session existence
           <>
             <span className="text-sm text-foreground hidden sm:inline">
               Hi, {getDisplayName()} {/* Uses profile if available, falls back to user_metadata */}
@@ -223,7 +223,7 @@ export function DashboardDisplay() {
     error,
   } = useQuery<any[], Error>({ // Replace 'any[]' with your DashboardItem[] type
     queryKey: ['dashboardData', user?.id],
-    queryFn: getDashboardData,
+    queryFn: getDashboardData, // This should be a Server Action
     enabled: !isSessionLoading && !!user?.id, // Enable after session check and if user object exists
   });
 
