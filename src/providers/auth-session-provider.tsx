@@ -1,3 +1,5 @@
+'use client'; // Add this directive
+
 import { type User } from '@supabase/supabase-js';
 import {
   createContext,
@@ -31,7 +33,7 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start true, set to false once initial auth state is known
   const [error, setError] = useState<Error | null>(null);
-  const [supabaseClient] = useState(() => createClient());
+  const [supabaseClient] = useState(() => createClient()); // Memoize client instance
 
   useEffect(() => {
     let isMounted = true;
@@ -40,6 +42,7 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
     console.log("AuthSessionProvider: useEffect mounting or supabaseClient changed.");
 
     // Attempt to get the current session state when the provider mounts.
+    // This helps determine the initial state faster.
     supabaseClient.auth.getSession().then(({ data: { session }, error: sessionError }) => {
       if (!isMounted) return;
 
@@ -58,10 +61,12 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
       console.error("AuthSessionProvider: Exception during initial getSession():", catchedError);
       setError(catchedError instanceof Error ? catchedError : new Error('Unknown error during getSession'));
       setUser(null);
+      // Consider setting isLoading to false here as well, as the initial attempt failed.
+      // if (isLoading) setIsLoading(false);
     });
 
     // Set up the auth state change listener
-    const { data: { subscription: authSubscription } } = supabaseClient.auth.onAuthStateChange( // Correctly destructure subscription
+    const { data: { subscription: authSubscription } } = supabaseClient.auth.onAuthStateChange(
       (event, session) => {
         if (!isMounted) return;
         
@@ -89,7 +94,7 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
     // then we assume loading is complete (e.g., there's truly no session, or some other issue).
     if (isLoading) { // Only set timeout if still loading
         loadingFallbackTimeoutId = setTimeout(() => {
-            if (isMounted && isLoading) { 
+            if (isMounted && isLoading) { // Check isLoading again before setting
                 console.warn("AuthSessionProvider: isLoading fallback timeout. Forcing isLoading to false.");
                 setIsLoading(false);
             }

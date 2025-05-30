@@ -1,23 +1,38 @@
-'use client';
+// Remove 'use client'; Root layouts should be Server Components by default.
+// Providers like ThemeProvider handle their own client boundaries.
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google'; // Ensure these are correctly configured
+import { Geist, Geist_Mono } from 'next/font/google';
 import '../styles/globals.css';
-import { Toaster } from "@/components/ui"; // Ensure this path is correct for your Toaster
-import { AuthSessionProvider, QueryClientProvider, ThemeProvider } from '@/providers'; // See note on Client Components
+import { Toaster } from "@/components/ui";
+import { AuthSessionProvider, QueryClientProvider, ThemeProvider } from '@/providers';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
-  display: 'swap', // Recommended for next/font
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
-  display: 'swap', // Recommended for next/font
+  display: 'swap',
 });
 
+// Add basic metadata, which is good practice for Server Component layouts
+export const metadata: Metadata = {
+  title: 'PassForge',
+  description: 'Secure password management by PassForge.',
+};
+
+/**
+ * Root layout for the PassForge application.
+ * Sets up global styles, fonts, and context providers.
+ *
+ * @param {object} props - The component's props.
+ * @param {React.ReactNode} props.children - The child components to render.
+ * @returns {JSX.Element} The root layout structure.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,8 +54,8 @@ export default function RootLayout({
               {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
             </QueryClientProvider>
           </AuthSessionProvider>
-        </ThemeProvider> {/* ThemeProvider is now correctly closed */}
-      </body> {/* Body tag now correctly wraps all content and providers */}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
