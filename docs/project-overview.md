@@ -38,8 +38,8 @@ Form submissions and auth operations are handled by **Server Actions** located i
     - If validation passes, the Server Action calls the `signUpWithSupabase` service function.
 - **Supabase Interaction (within Service):**
     - `supabase.auth.signUp()` is called.
-    - `firstName` and `lastName` are passed in the `options.data` object (as `first_name` and `last_name`), which Supabase stores in the `auth.users` table's `user_metadata` JSONB column.
-    - `options.emailRedirectTo` is dynamically configured to `[YOUR_SITE_URL]/auth/confirm?next=/login`. This URL is where the user will be sent after clicking the confirmation link in their email. The `next=/login` parameter tells the confirmation route where to redirect the user after successful verification.
+    *   `firstName` and `lastName` are passed in the `options.data` object (as `first_name` and `last_name`), which Supabase stores in the `auth.users` table's `user_metadata` JSONB column.
+    *   `options.emailRedirectTo` is dynamically configured to `[YOUR_SITE_URL]/auth/confirm?next=/login`. This URL is where the user will be sent after clicking the confirmation link in their email. The `next=/login` parameter tells the confirmation route where to redirect the user after successful verification.
 - **User Feedback:**
     - Upon successful initiation of sign-up, the user sees a message prompting them to check their email for a confirmation link and a button to navigate to the login page.
 
@@ -80,8 +80,8 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
     - If validation passes, the Server Action calls the `resetPasswordForEmailWithSupabase` service function.
 - **Supabase Interaction (within Service):**
-    - `supabase.auth.resetPasswordForEmail()` is called.
-    - `options.emailRedirectTo` is configured to `[YOUR_SITE_URL]/auth/confirm?next=/reset-password&email={USER_EMAIL}`. The `email` parameter is included to help password managers and pre-fill the email field on the reset password page.
+    *   `supabase.auth.resetPasswordForEmail()` is called.
+    *   `options.emailRedirectTo` is configured to `[YOUR_SITE_URL]/auth/confirm?next=/reset-password&email={USER_EMAIL}`. The `email` parameter is included to help password managers and pre-fill the email field on the reset password page.
 - **User Feedback:**
     - A message indicates that if an account exists for that email, a password reset link has been sent.
 
@@ -91,7 +91,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **User Interface (`src/features/auth/components/reset-password-form.tsx` - Client Component):**
     - The email field is pre-filled (from URL query parameter) and disabled.
     - User enters their New Password and confirms it.
-    - An initial check is performed using the `useAuth` hook (`@/features/auth/hooks`) to ensure a user session exists (meaning they've successfully come from the email link). It specifically uses `isSessionLoading` and `sessionUser` from the hook. If not, they are redirected to `/forgot-password`.
+    - An initial check is performed using the `useAuth` hook (`@/features/auth/hooks`). It specifically uses `isSessionLoading` and `user` (from session) to ensure a user session exists (meaning they've successfully come from the email link). If not, they are redirected to `/forgot-password`.
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `updateUserPassword` Server Action.
 - **Server-Side Validation (within Server Action):**
@@ -107,7 +107,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 
 - **User Interface (e.g., `src/features/homepage/components/hero-header/hero-header.tsx` - Client Component):**
     - A "Sign Out" button is present.
-    - This button is visible to authenticated users, determined by the `useAuth` hook (specifically, checking if `user` from the session is present after `isSessionLoading` is false).
+    - This button is visible to authenticated users, determined by the `useAuth` hook (specifically, checking `!isSessionLoading && !!user`).
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Clicking the "Sign Out" button (which is inside a `<form>`) triggers the `signOutUserAction` Server Action.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
@@ -122,15 +122,15 @@ Form submissions and auth operations are handled by **Server Actions** located i
 Client components access authentication status, the raw Supabase user object, and detailed user profile information primarily through the **`useAuth` hook** (`src/features/auth/hooks/use-auth.ts`).
 
 This hook is the central point for UI components to understand the user's authentication status. It combines:
-1.  **Raw Session Data (from React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to provide the live Supabase `User` object and the session's initial loading status (`isSessionLoading`).
+1.  **Raw Session Data (from React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to provide the live Supabase `User` object and the session's initial loading status (`isSessionLoading`) and any session-related errors (`sessionError`). It relies on the `onAuthStateChange` listener for reactive updates.
 2.  **Detailed User Profile (from TanStack Query):** The `useUserProfileQuery` hook (`@/features/user-profile/hooks/use-user-profile-query.ts`) uses TanStack Query to fetch detailed user profile information from the `profiles` table via a Server Action.
 
 The `useAuth` hook returns a comprehensive state object, including:
 *   `user`: The raw Supabase user object (or `null`).
 *   `profile`: The detailed `UserProfile` object (or `undefined` if not loaded/found).
 *   `authUser`: A combined object of `user` and `profile` data, available when the stricter `isAuthenticated` is true.
-*   `isAuthenticated`: A **stricter** boolean flag that is true only if a Supabase session exists AND the detailed user profile has been successfully loaded.
-*   `isLoadingAuth`: A composite boolean, true if the session is loading OR (if a session user exists) the profile is still loading.
+*   `isAuthenticated`: A **stricter** boolean flag that is true only if a Supabase session exists (`!!user` is true, `isSessionLoading` is false) AND the detailed user profile has been successfully loaded (`!!profile` is true, `isProfileLoading` is false).
+*   `isLoadingAuth`: A composite boolean, true if `isSessionLoading` is true, OR if a session user exists (`!!user`) but the profile is still loading (`isProfileLoading`).
 *   `isSessionLoading`: A boolean indicating if the raw Supabase session is still being determined by `AuthSessionProvider`. Components use this for initial UI loading states (e.g., showing a spinner before login/logout buttons appear).
 *   `sessionError`: Any error from `AuthSessionProvider`.
 *   `isProfileLoading`: A boolean indicating if the detailed user profile is being fetched.
@@ -162,7 +162,7 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - **Can use browser APIs** and handle user events.
 - **In this project:**
     - All form components in `src/features/auth/components/`.
-    - The `HomepageHeader` and related components in `src/features/homepage/components/`.
+    - The `HomepageHeader` and related components in `src/features/homepage/components/hero-header/`.
     - Provider components like `src/providers/auth-session-provider.tsx`, `src/providers/theme-provider.tsx`, and `src/providers/query-client-provider.tsx`.
     - The `useAuth` hook in `src/features/auth/hooks/use-auth.ts`.
 
@@ -300,3 +300,5 @@ This structure ensures that the core identity management (auth) is distinct from
 
 This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query, with Zustand available for other global client state. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
 The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy.
+
+    
