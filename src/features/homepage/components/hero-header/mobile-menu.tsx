@@ -104,9 +104,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
               </>
             ) : (
               <>
-                <Button variant="ghost" asChild size="sm" className="w-full my-1" onClick={onClose}>
-                    <Link href="/forgot-password">Request Reset</Link>
-                </Button>
+                {/* "Request Reset" link removed from here */}
                 <Button variant="ghost" asChild size="sm" className="w-full my-1" onClick={onClose}>
                   <Link href="/login">Login</Link>
                 </Button>

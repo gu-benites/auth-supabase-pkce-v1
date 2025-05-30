@@ -174,9 +174,7 @@ const HomepageHeader: React.FC = () => {
               </>
             ) : (
               <>
-                <Button variant="ghost" asChild size="sm">
-                    <Link href="/forgot-password">Request Reset</Link>
-                </Button>
+                {/* "Request Reset" link removed from here */}
                 <Button variant="ghost" asChild size="sm">
                   <Link href="/login">Login</Link>
                 </Button>
