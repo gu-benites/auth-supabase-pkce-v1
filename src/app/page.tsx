@@ -1,7 +1,6 @@
 
 "use client";
-
-import { HomepageLayout } from '@/features/homepage/components';
+import { HeroSection } from '@/features/homepage';
 
 /**
  * Renders the main homepage of the PassForge application.
@@ -9,5 +8,5 @@ import { HomepageLayout } from '@/features/homepage/components';
  * @returns {JSX.Element} The homepage layout component.
  */
 export default function RootPage(): JSX.Element {
-  return <HomepageLayout />;
+  return <HeroSection />;
 }

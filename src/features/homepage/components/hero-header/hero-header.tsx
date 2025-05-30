@@ -1,15 +1,22 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useMotionValueEvent, type Variants } from 'framer-motion';
-// import { useScrollListener } from '../../../hooks/use-scroll-listener'; // Replaced by useScroll
-// import { useWindowSize } from '../../../hooks'; // Not directly needed here, MobileMenu handles its own visibility
+import Link from 'next/link'; // Import Link for Next.js navigation
 import NavLink from './nav-link';
 import DropdownMenu from './dropdown-menu';
 import MobileMenu from './mobile-menu';
-import { MenuIcon, CloseIcon, NexusLogoIcon } from './icons';
-import { NAV_ITEMS_DESKTOP, NAV_ITEMS_MOBILE, PRIMARY_BUTTON_TEXT, LOGO_TEXT } from '../../constants';
-import { NavItem as NavItemType } from '../../types';
+import { MenuIcon, CloseIcon, NexusLogoIcon } from './icons'; // Assuming NexusLogoIcon is your app's logo
+import { NAV_ITEMS_DESKTOP, NAV_ITEMS_MOBILE, LOGO_TEXT } from '../../constants';
+import type { NavItem as NavItemType } from '../../types';
+import { useAuth } from '@/features/auth/hooks/use-auth'; // Use our project's useAuth hook
+import { signOutUserAction } from '@/features/auth/actions'; // Import the server action for sign out
+import { Button } from '@/components/ui/button'; // Import Button if NavLink doesn't cover styled buttons
+import { PassForgeLogo } from '@/components/icons'; // Using PassForgeLogo
+import { Loader2, UserCircle2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 const HeroHeader: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -21,9 +28,10 @@ const HeroHeader: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const headerRef = useRef<HTMLElement>(null);
-  // Fix: Changed NodeJS.Timeout to ReturnType<typeof setTimeout> for browser compatibility.
   const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Use our project's useAuth hook
+  const { user, profile, isAuthenticated, isLoading, error } = useAuth();
 
   const handleDropdownEnter = (label: string) => {
     if (dropdownTimeoutRef.current) {
@@ -35,7 +43,7 @@ const HeroHeader: React.FC = () => {
   const handleDropdownLeave = () => {
     dropdownTimeoutRef.current = setTimeout(() => {
         setOpenDropdown(null);
-    }, 100); // Small delay to allow moving mouse to dropdown
+    }, 100); 
   };
   
   const closeDropdown = () => {
@@ -70,6 +78,28 @@ const HeroHeader: React.FC = () => {
     }
   };
 
+  const getDisplayName = () => {
+    if (profile?.firstName) return profile.firstName;
+    // @ts-ignore user_metadata exists but TypeScript might not know its shape
+    if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'User';
+  };
+
+  const getInitials = () => {
+    const firstName = profile?.firstName || user?.user_metadata?.first_name;
+    // @ts-ignore
+    const lastName = profile?.lastName || user?.user_metadata?.last_name;
+    const firstInitial = firstName?.[0] || '';
+    const lastInitial = lastName?.[0] || '';
+    const initials = `${firstInitial}${lastInitial}`.toUpperCase();
+    return initials || <UserCircle2 size={18} />;
+  };
+  
+  // @ts-ignore user_metadata exists
+  const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url;
+
+
   return (
     <motion.header
       ref={headerRef}
@@ -79,13 +109,15 @@ const HeroHeader: React.FC = () => {
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="px-6 w-full md:px-10 lg:px-16 fixed top-0 left-0 right-0 z-30 backdrop-blur-md border-b"
     >
-      <div className="container mx-auto px-0 sm:px-0 lg:px-0"> {/* Adjusted padding to match original structure */}
+      <div className="container mx-auto px-0 sm:px-0 lg:px-0">
         <nav className="flex justify-between items-center max-w-screen-xl mx-auto h-[70px]">
           {/* Logo */}
-          <a href="#" className="flex items-center flex-shrink-0 text-foreground">
-            <NexusLogoIcon />
-            <span className="text-xl font-bold ml-2">{LOGO_TEXT}</span>
-          </a>
+          <Link href="/" className="flex items-center flex-shrink-0 text-foreground group">
+            <PassForgeLogo className="h-8 w-8 text-primary group-hover:text-primary transition-colors" />
+            <span className="text-xl font-bold ml-2 text-foreground group-hover:text-primary transition-colors">
+              {LOGO_TEXT === 'Nexus' ? 'PassForge' : LOGO_TEXT}
+            </span>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center flex-grow space-x-6 lg:space-x-8 px-4">
@@ -115,17 +147,47 @@ const HeroHeader: React.FC = () => {
           </div>
           
           {/* Desktop Action Buttons */}
-          <div className="hidden md:flex items-center flex-shrink-0 space-x-4 lg:space-x-6">
-             <NavLink href="/dashboard" label="Dashboard" isButton />
-             <NavLink href="#book-demo" label={PRIMARY_BUTTON_TEXT} isButton isPrimary />
+          <div className="hidden md:flex items-center flex-shrink-0 space-x-2 sm:space-x-4 lg:space-x-6">
+            {isLoading ? (
+               <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            ) : isAuthenticated ? (
+              <>
+                <span className="text-sm text-foreground hidden sm:inline">
+                  Hi, {getDisplayName()}
+                </span>
+                <Avatar className="h-8 w-8 text-sm">
+                  <AvatarImage src={avatarUrl} alt={getDisplayName()} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <form action={signOutUserAction}>
+                  <Button variant="ghost" type="submit" size="sm">Sign Out</Button>
+                </form>
+                <Button variant="secondary" asChild size="sm">
+                    <Link href="/profile">Profile</Link> 
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" asChild size="sm">
+                    <Link href="/auth/forgot-password">Request Reset</Link>
+                </Button>
+                <Button variant="ghost" asChild size="sm">
+                  <Link href="/auth/login">Login</Link>
+                </Button>
+                <Button variant="default" asChild size="sm">
+                  <Link href="/auth/register">Sign Up</Link>
+                </Button>
+              </>
+            )}
           </div>
-
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center">
             <motion.button
               onClick={toggleMobileMenu}
-              className="text-muted-foreground hover:text-foreground z-50 p-2 -mr-2" // Added padding for easier tap
+              className="text-muted-foreground hover:text-foreground z-50 p-2 -mr-2"
               aria-label="Toggle menu"
               whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             >
@@ -134,13 +196,10 @@ const HeroHeader: React.FC = () => {
           </div>
         </nav>
       </div>
-       {/* Mobile Menu - rendered outside the container to take full width */}
        <MobileMenu
         isOpen={isMobileMenuOpen}
-        items={[...NAV_ITEMS_MOBILE, {label: PRIMARY_BUTTON_TEXT, href:"#book-demo", isButton:true, isPrimary:true, isMobileOnly: true}]}
+        items={NAV_ITEMS_MOBILE} 
         onClose={toggleMobileMenu}
-        primaryButtonText={PRIMARY_BUTTON_TEXT} // This prop might be redundant if handled by items
-        onPrimaryButtonClick={() => { toggleMobileMenu(); /* navigate to #book-demo */ }}
       />
     </motion.header>
   );

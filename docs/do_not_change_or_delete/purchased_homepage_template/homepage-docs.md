@@ -1,5 +1,9 @@
 
-# Homepage Feature Documentation
+# Homepage Feature Documentation (Original Template)
+
+**IMPORTANT NOTE:** The authentication state management (displaying login/logout buttons, user info, etc.) within the header components (`HeroHeader.tsx`, `MobileMenu.tsx`) described in this document has been **MODIFIED**. These components now integrate with the project's central authentication hook: `useAuth` from `src/features/auth/hooks/use-auth.ts`. The sign-out functionality also uses the project's `signOutUserAction` Server Action. Please refer to the current project code and `src/features/homepage/README.md` for the most up-to-date implementation details regarding authentication.
+
+This document describes the structure and functionality of the **original purchased homepage template**.
 
 ## Table of Contents
 
@@ -175,3 +179,4 @@ src/
 *   **Types**:
     *   `src/features/homepage/types/hero-header-types.ts`: Defines `NavItem` and `DropdownItemData` for header navigation.
     *   `src/features/homepage/types/hero-canvas-background-types.ts`: Defines `Dot`, `MousePosition`, `DotGrid` for the canvas animation.
+

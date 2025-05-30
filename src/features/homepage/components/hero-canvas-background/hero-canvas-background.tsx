@@ -7,7 +7,7 @@ import {
   GRID_CELL_SIZE, OPACITY_PULSE_SPEED_MIN, OPACITY_PULSE_SPEED_MAX
 } from '../../constants';
 import { Dot, MousePosition, DotGrid } from '../../types';
-import { useWindowSize } from '../../../../hooks'; 
+import { useWindowSize } from '@/hooks/use-window-size'; 
 
 interface HeroCanvasBackgroundProps {
   color?: string; // CSS variable name or hex/rgb value
@@ -219,7 +219,7 @@ const HeroCanvasBackground: React.FC<HeroCanvasBackgroundProps> = ({
     });
 
     animationFrameIdRef.current = requestAnimationFrame(animateDots);
-  }, [canvasSize]); // Depends on canvasSize for width/height
+  }, [canvasSize, rgbColor]); // Depends on canvasSize for width/height and rgbColor
 
   useEffect(() => {
     // Listen on window for mouse move as in original, but document for mouse leave.
