@@ -1,9 +1,9 @@
-
+// src/features/homepage/components/hero-header/mobile-menu.tsx
 "use client";
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 import type { NavItem } from '../../types';
 import NavLink from './nav-link';
 import DropdownItem from './dropdown-item'; 
@@ -39,8 +39,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
     exit: { opacity: 0, y: -20, transition: { duration: 0.15, ease: "easeIn" } }
   };
 
-  const { isAuthenticated, isLoading } = useAuth();
-
+  const { isAuthenticated, isSessionLoading } = useAuth(); // Use session-specific loading
 
   return (
     <AnimatePresence>
@@ -84,7 +83,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
             <Separator className="my-3 w-full" />
 
             {/* Auth-dependent Actions */}
-            {isLoading ? (
+            {isSessionLoading ? ( // Use session-specific loading
                <Loader2 className="h-6 w-6 animate-spin text-primary my-2" />
             ) : isAuthenticated ? (
               <>
@@ -104,7 +103,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
               </>
             ) : (
               <>
-                {/* "Request Reset" link removed from here */}
                 <Button variant="ghost" asChild size="sm" className="w-full my-1" onClick={onClose}>
                   <Link href="/login">Login</Link>
                 </Button>

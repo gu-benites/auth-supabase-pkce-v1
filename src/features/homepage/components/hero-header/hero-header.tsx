@@ -40,15 +40,25 @@ const HeroHeader: React.FC = () => {
   const headerRef = useRef<HTMLElement>(null);
   const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { user, profile, isAuthenticated, isLoading } = useAuth();
-  const prevIsLoadingRef = useRef<boolean>(isLoading);
+  const {
+    user,
+    profile,
+    isAuthenticated,
+    isLoading: compositeIsLoading, // Renamed to avoid confusion, represents combined session and profile loading
+    isSessionLoading, // Use this for the primary auth button visibility
+    sessionError,
+    // isProfileLoading, // Can be used for finer-grained loading of profile-specific info
+    // profileError // Can be used for finer-grained error handling of profile-specific info
+  } = useAuth();
+
+  const prevIsSessionLoadingRef = useRef<boolean>(isSessionLoading);
 
   useEffect(() => {
-    if (prevIsLoadingRef.current === true && isLoading === false) {
-      console.log(`[${getTimestamp()}] HomepageHeader: Auth loading finished.`);
+    if (prevIsSessionLoadingRef.current === true && isSessionLoading === false) {
+      console.log(`[${getTimestamp()}] HomepageHeader: Session loading finished. isAuthenticated: ${isAuthenticated}`);
     }
-    prevIsLoadingRef.current = isLoading;
-  }, [isLoading]);
+    prevIsSessionLoadingRef.current = isSessionLoading;
+  }, [isSessionLoading, isAuthenticated]);
 
 
   const handleDropdownEnter = (label: string) => {
@@ -163,12 +173,14 @@ const HeroHeader: React.FC = () => {
 
           {/* Desktop Action Buttons */}
           <div className="hidden md:flex items-center flex-shrink-0 space-x-2 sm:space-x-4 lg:space-x-6">
-            {isLoading ? (
+            {isSessionLoading ? ( // Use session-specific loading for the main button block
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             ) : isAuthenticated ? (
               <>
                 <span className="text-sm text-foreground hidden sm:inline">
-                  Hi, {getDisplayName()}
+                  Hi, {getDisplayName()} 
+                  {/* Optionally, show a smaller loader if profile is still loading for name/avatar */}
+                  {/* {compositeIsLoading && !isSessionLoading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-1 inline-block" />} */}
                 </span>
                 <Avatar className="h-8 w-8 text-sm">
                   <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
