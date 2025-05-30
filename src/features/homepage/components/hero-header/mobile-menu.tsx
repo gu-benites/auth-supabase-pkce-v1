@@ -8,9 +8,8 @@ import type { NavItem } from '../../types';
 import NavLink from './nav-link';
 import DropdownItem from './dropdown-item'; 
 import { ChevronDownIcon as ChevronDownIconImported } from './icons'; 
-import { useAuth } from '@/features/auth/hooks';
+// Removed direct useAuth import here; props will be passed down
 import { signOutUserAction } from '@/features/auth/actions';
-import { cn } from '@/lib/utils';
 import { Button, Separator } from '@/components/ui';
 import { Loader2 } from 'lucide-react';
 
@@ -18,28 +17,29 @@ interface MobileMenuProps {
   isOpen: boolean;
   items: NavItem[]; 
   onClose: () => void;
+  isSessionLoading: boolean; // Prop for session loading state
+  isAuthenticated: boolean; // Prop for basic authentication state (session exists)
 }
 
 /**
  * Renders the mobile navigation menu.
- * This menu is displayed on smaller screens and provides access to navigation links
- * and authentication actions (login, register, profile, logout).
- * It uses Framer Motion for animations and integrates with the `useAuth` hook for auth state.
+ * Authentication state (isSessionLoading, isAuthenticated) is passed as props.
  *
  * @param {MobileMenuProps} props - The component's props.
- * @param {boolean} props.isOpen - Whether the mobile menu is currently open.
- * @param {NavItem[]} props.items - Array of general navigation items.
- * @param {() => void} props.onClose - Function to call when the menu should be closed.
  * @returns {JSX.Element | null} The mobile menu component or null if not open.
  */
-const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
+const MobileMenu: React.FC<MobileMenuProps> = ({ 
+  isOpen, 
+  items, 
+  onClose,
+  isSessionLoading, // Use passed prop
+  isAuthenticated, // Use passed prop
+}) => {
   const mobileMenuVariants = {
     hidden: { opacity: 0, y: -20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
     exit: { opacity: 0, y: -20, transition: { duration: 0.15, ease: "easeIn" } }
   };
-
-  const { isAuthenticated, isSessionLoading } = useAuth(); // Use session-specific loading
 
   return (
     <AnimatePresence>
@@ -53,7 +53,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
           className="md:hidden absolute top-full left-0 right-0 bg-background/95 backdrop-blur-sm shadow-lg py-4 border-t border-border/50 z-40 max-h-[calc(100vh-70px)] overflow-y-auto"
         >
           <div className="flex flex-col items-center space-y-1 px-6 pb-4">
-            {/* General Navigation Items */}
             {items.map((item) => (
               item.children ? (
                  <details key={item.label} className="group w-full text-center">
@@ -82,8 +81,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, items, onClose }) => {
 
             <Separator className="my-3 w-full" />
 
-            {/* Auth-dependent Actions */}
-            {isSessionLoading ? ( // Use session-specific loading
+            {isSessionLoading ? (
                <Loader2 className="h-6 w-6 animate-spin text-primary my-2" />
             ) : isAuthenticated ? (
               <>

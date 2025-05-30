@@ -17,14 +17,10 @@ import { PassForgeLogo } from '@/components/icons';
 import { Loader2, UserCircle2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// Removed getTimestamp and specific useEffect for logging session loading finished.
-// The header now relies on isSessionLoading for its primary loader.
-
 /**
  * Renders the main header for the homepage.
- * It includes the application logo, desktop navigation links (if any),
+ * It includes the application logo, desktop navigation links,
  * a mobile menu toggle, and authentication-related action buttons.
- * The header's appearance changes on scroll.
  * Authentication state is managed via the `useAuth` hook.
  *
  * @returns {JSX.Element} The homepage header component.
@@ -42,13 +38,15 @@ const HeroHeader: React.FC = () => {
   const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
-    user,
-    profile,
-    isAuthenticated,
-    isLoading: compositeIsLoading, // Combined session and profile loading
-    isSessionLoading, // Specifically for the session provider's initial check
-    // sessionError, // Available if needed for specific error display
-    // profileError // Available if needed for specific error display
+    user, // Raw Supabase user from session
+    profile, // Detailed profile
+    // authUser, // Combined user + profile, available if stricter isAuthenticated is true
+    // isAuthenticated, // Stricter: true if session AND profile are loaded
+    // isLoadingAuth, // Composite loading for session + profile
+    isSessionLoading, // True while AuthSessionProvider checks initial session
+    // sessionError,
+    // isProfileLoading,
+    // profileError,
   } = useAuth();
 
   const handleDropdownEnter = (label: string) => {
@@ -114,6 +112,7 @@ const HeroHeader: React.FC = () => {
   };
   
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
+  const currentIsAuthenticated = !!user; // Use basic session check for button visibility
 
   return (
     <motion.header
@@ -126,7 +125,6 @@ const HeroHeader: React.FC = () => {
     >
       <div className="container mx-auto px-0 sm:px-0 lg:px-0">
         <nav className="flex justify-between items-center max-w-screen-xl mx-auto h-[70px]">
-          {/* Logo */}
           <Link href="/" className="flex items-center flex-shrink-0 group">
             <PassForgeLogo className="h-8 w-8 text-primary group-hover:text-primary transition-colors" />
             <span className="text-xl font-bold ml-2 text-foreground group-hover:text-primary transition-colors">
@@ -134,7 +132,6 @@ const HeroHeader: React.FC = () => {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center flex-grow space-x-6 lg:space-x-8 px-4">
             {NAV_ITEMS_DESKTOP.map((item: NavItemType) => (
               <div
@@ -161,11 +158,10 @@ const HeroHeader: React.FC = () => {
             ))}
           </div>
 
-          {/* Desktop Action Buttons */}
           <div className="hidden md:flex items-center flex-shrink-0 space-x-2 sm:space-x-4 lg:space-x-6">
-            {isSessionLoading ? ( // Use session-specific loading for the main button block
+            {isSessionLoading ? (
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            ) : isAuthenticated ? ( // isAuthenticated is true if session user exists
+            ) : currentIsAuthenticated ? (
               <>
                 <span className="text-sm text-foreground hidden sm:inline">
                   Hi, {getDisplayName()}
@@ -195,7 +191,6 @@ const HeroHeader: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center">
             <motion.button
               onClick={toggleMobileMenu}
@@ -212,6 +207,8 @@ const HeroHeader: React.FC = () => {
         isOpen={isMobileMenuOpen}
         items={NAV_ITEMS_MOBILE}
         onClose={toggleMobileMenu}
+        isSessionLoading={isSessionLoading} // Pass session loading state
+        isAuthenticated={currentIsAuthenticated} // Pass basic auth status
       />
     </motion.header>
   );

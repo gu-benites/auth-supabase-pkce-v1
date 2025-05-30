@@ -3,7 +3,6 @@ import React from 'react';
 import HeroHeader from './components/hero-header/hero-header';
 import HeroCanvasBackground from './components/hero-canvas-background/hero-canvas-background';
 import HeroContent from './components/hero-content/hero-content';
-// Removed useAuth and Card related imports as they are no longer needed here.
 
 /**
  * The main orchestrating component for the homepage.
@@ -14,7 +13,7 @@ import HeroContent from './components/hero-content/hero-content';
  */
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative bg-background text-muted-foreground min-h-screen flex flex-col overflow-x-hidden pt-[100px]">
+    <section className="relative bg-background text-muted-foreground min-h-screen flex flex-col overflow-x-hidden pt-[70px]"> {/* Adjusted pt if header height is 70px */}
       {/* Canvas Background - z-0 */}
       <HeroCanvasBackground color="var(--primary)" />
 
@@ -32,7 +31,6 @@ export const HeroSection: React.FC = () => {
 
       {/* Content Area - z-10 */}
       <main className="flex-grow flex flex-col items-center justify-center text-center px-4 pt-8 pb-16 relative z-10">
-        {/* HeroContent - Renders immediately and unconditionally */}
         <HeroContent />
       </main>
     </section>

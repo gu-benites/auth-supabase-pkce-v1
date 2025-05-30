@@ -1,9 +1,6 @@
 // src/app/page.tsx
-"use client";
-import { useEffect } from 'react';
+// 'use client' directive removed as this page only renders HomepageLayout
 import { HomepageLayout } from '@/features/homepage/components';
-
-// Removed getTimestamp and useEffect for logging page mount.
 
 /**
  * Renders the main homepage of the PassForge application.

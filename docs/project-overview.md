@@ -17,7 +17,7 @@ The goal is to offer a clear guide for understanding, maintaining, and extending
 - Lucide Icons (Icon Library)
 - TypeScript
 - TanStack Query (for server state management, e.g., user profile)
-- React Context (for raw session state)
+- React Context (for raw session state via `AuthSessionProvider`)
 
 ## I. Authentication Flow Details
 
@@ -33,7 +33,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - The form submission triggers the `signUpNewUser` Server Action.
 - **Server-Side Validation (within Server Action):**
-    - Input data is validated using Zod schemas from `src/features/auth/schemas/register.schema.ts` and `src/features/auth/schemas/auth.common.schemas.ts`.
+    - Input data is validated using Zod schemas from `src/features/auth/schemas/`.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
     - If validation passes, the Server Action calls the `signUpWithSupabase` service function.
 - **Supabase Interaction (within Service):**
@@ -51,7 +51,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
     - It calls `supabase.auth.verifyOtp({ type, token_hash })` to exchange the token and confirm the user's email (or verify other OTP types).
 - **Redirection:**
     - **Success:** If OTP verification is successful, the user is redirected to the URL specified in the `next` query parameter (e.g., `/login` for registration, `/reset-password` for password recovery). Any additional query parameters from the original confirmation link (except `token_hash` and `type`) are forwarded to the `next` URL.
-    - **Failure:** If verification fails (e.g., token expired, invalid), the user is redirected to `/auth/auth-code-error`. **Note:** You must create this error page (e.g., `src/app/(auth)/auth/auth-code-error/page.tsx`) to provide meaningful feedback to the user.
+    - **Failure:** If verification fails (e.g., token expired, invalid), the user is redirected to `/auth/auth-code-error`. **Note:** You must create this error page (e.g., `src/app/(auth)/auth-code-error/page.tsx`) to provide meaningful feedback to the user.
 
 ### 3. User Login (`/src/app/(auth)/login/page.tsx`)
 
@@ -60,13 +60,13 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `signInWithPassword` Server Action.
 - **Server-Side Validation (within Server Action):**
-    - Email and password validated using Zod schemas from `src/features/auth/schemas/login.schema.ts`.
+    - Email and password validated using Zod schemas from `src/features/auth/schemas/`.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
     - If validation passes, the Server Action calls the `signInWithPasswordWithSupabase` service function.
 - **Supabase Interaction (within Service):**
     - `supabase.auth.signInWithPassword()` is called to authenticate the user.
 - **Session Management & Redirection:**
-    - **Success:** Supabase returns a session. The `src/middleware.ts` plays a crucial role in managing and refreshing this session cookie. The user is then redirected to the homepage (`/`).
+    - **Success:** Supabase returns a session. The `src/middleware.ts` (delegating to `src/features/auth/utils/middleware.utils.ts`) plays a crucial role in managing and refreshing this session cookie. The user is then redirected to the homepage (`/`).
     - **Failure:** An error message is displayed to the user via toast notification.
 
 ### 4. Forgot Password (`/src/app/(auth)/forgot-password/page.tsx`)
@@ -76,7 +76,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `requestPasswordReset` Server Action.
 - **Server-Side Validation (within Server Action):**
-    - Email validated using Zod schema from `src/features/auth/schemas/forgot-password.schema.ts`.
+    - Email validated using Zod schema from `src/features/auth/schemas/`.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
     - If validation passes, the Server Action calls the `resetPasswordForEmailWithSupabase` service function.
 - **Supabase Interaction (within Service):**
@@ -89,13 +89,13 @@ Form submissions and auth operations are handled by **Server Actions** located i
 
 - **Access:** User arrives here after clicking the password reset link in their email, which is processed by the `/auth/confirm` route handler. The URL will include the `email` as a query parameter.
 - **User Interface (`src/features/auth/components/reset-password-form.tsx` - Client Component):**
-    - The email field is pre-filled (from URL query parameter) and disabled, providing context for password managers.
+    - The email field is pre-filled (from URL query parameter) and disabled.
     - User enters their New Password and confirms it.
-    - An initial check is performed using the `useAuth` hook (`@/features/auth/hooks`) to ensure a user session exists (meaning they've successfully come from the email link). If not, they are redirected to `/forgot-password`.
+    - An initial check is performed using the `useAuth` hook (`@/features/auth/hooks`) to ensure a user session exists (meaning they've successfully come from the email link). It specifically uses `isSessionLoading` and `sessionUser` from the hook. If not, they are redirected to `/forgot-password`.
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `updateUserPassword` Server Action.
 - **Server-Side Validation (within Server Action):**
-    - New password and confirmation are validated (must match, meet strength criteria) using Zod schemas from `src/features/auth/schemas/update-password.schema.ts`.
+    - New password and confirmation are validated using Zod schemas from `src/features/auth/schemas/`.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
     - If validation passes, the Server Action calls the `updateUserWithSupabase` service function.
 - **Supabase Interaction (within Service):**
@@ -105,9 +105,9 @@ Form submissions and auth operations are handled by **Server Actions** located i
 
 ### 6. User Sign Out (Example: Homepage Header)
 
-- **User Interface (e.g., `src/features/homepage/components/header.tsx` - Client Component):**
+- **User Interface (e.g., `src/features/homepage/components/hero-header/hero-header.tsx` - Client Component):**
     - A "Sign Out" button is present.
-    - This button is visible to authenticated users, determined by the `useAuth` hook.
+    - This button is visible to authenticated users, determined by the `useAuth` hook (specifically, checking if `user` from the session is present after `isSessionLoading` is false).
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Clicking the "Sign Out" button (which is inside a `<form>`) triggers the `signOutUserAction` Server Action.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
@@ -117,13 +117,24 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Redirection:**
     - Upon successful sign-out, the `signOutUserAction` redirects the user to the `/login` page.
 
-## II. Client-Side Authentication State
+## II. Client-Side Authentication State (`useAuth` Hook)
 
-Client components access authentication status, the raw Supabase user object, and detailed user profile information primarily through the `useAuth` hook:
-- **`src/features/auth/hooks/use-auth.ts`**: This is the main hook for UI components.
-    - It consumes the raw Supabase session from `AuthSessionProvider` (React Context).
-    - It fetches the detailed user profile using `useUserProfileQuery` (TanStack Query), which calls a Server Action.
-    - It provides a composite state: `user` (raw Supabase user), `profile` (detailed `UserProfile`), `isAuthenticated`, `isLoading` (composite loading for session and profile), and `error`.
+Client components access authentication status, the raw Supabase user object, and detailed user profile information primarily through the **`useAuth` hook** (`src/features/auth/hooks/use-auth.ts`).
+
+This hook is the central point for UI components to understand the user's authentication status. It combines:
+1.  **Raw Session Data (from React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to provide the live Supabase `User` object and the session's initial loading status (`isSessionLoading`).
+2.  **Detailed User Profile (from TanStack Query):** The `useUserProfileQuery` hook (`@/features/profile/hooks/use-user-profile-query.ts`) uses TanStack Query to fetch detailed user profile information from the `profiles` table via a Server Action.
+
+The `useAuth` hook returns a comprehensive state object, including:
+*   `user`: The raw Supabase user object (or `null`).
+*   `profile`: The detailed `UserProfile` object (or `undefined` if not loaded/found).
+*   `authUser`: A combined object of `user` and `profile` data, available when fully authenticated.
+*   `isAuthenticated`: A **stricter** boolean flag that is true only if a Supabase session exists AND the detailed user profile has been successfully loaded.
+*   `isLoadingAuth`: A composite boolean, true if the session is loading OR (if a session user exists) the profile is still loading.
+*   `isSessionLoading`: A boolean indicating if the raw Supabase session is still being determined by `AuthSessionProvider`. Components use this for initial UI loading states (e.g., showing a spinner before login/logout buttons appear).
+*   `sessionError`: Any error from `AuthSessionProvider`.
+*   `isProfileLoading`: A boolean indicating if the detailed user profile is being fetched.
+*   `profileError`: Any error from `useUserProfileQuery`.
 
 For more details on this setup, refer to `docs/integrating-state-and-data-fetching.md`.
 
@@ -137,7 +148,10 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 - **Characteristics:**
     - Can directly `async/await` data fetches.
     - Cannot use React Hooks that rely on browser environment (e.g., `useState`, `useEffect`, `useContext`) or browser-only APIs (e.g., `window`, `localStorage`).
-- **In this project:** Root layouts (`src/app/layout.tsx`), and the basic page shells in `src/app/(auth)/...` that primarily render Client Components.
+- **In this project:**
+    - Root layout (`src/app/layout.tsx`).
+    - The auth layout `src/app/(auth)/layout.tsx`.
+    - Basic page shells in `src/app/(auth)/...` or `src/app/` that primarily render Client Components.
 
 ### `'use client'` Directive
 - **Purpose:** Marks a component and its imported child modules as **Client Components**.
@@ -147,9 +161,9 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - **Can use React Hooks** (`useState`, `useEffect`, `useActionState`, `useRouter`, `useContext`, custom hooks like `useAuth`).
     - **Can use browser APIs** and handle user events.
 - **In this project:**
-    - All form components in `src/features/auth/components/` (e.g., `login-form.tsx`).
-    - The `HomepageHeader` in `src/features/homepage/components/`.
-    - Provider components like `src/providers/auth-session-provider.tsx`, `src/providers/posthog-provider.tsx`, and `src/providers/query-client-provider.tsx`.
+    - All form components in `src/features/auth/components/`.
+    - The `HomepageHeader` and related components in `src/features/homepage/components/`.
+    - Provider components like `src/providers/auth-session-provider.tsx`, `src/providers/theme-provider.tsx`, and `src/providers/query-client-provider.tsx`.
     - The `useAuth` hook in `src/features/auth/hooks/use-auth.ts`.
 
 ### `'use server'` Directive
@@ -160,9 +174,10 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - Can securely access server-side resources: databases (Supabase), internal APIs, environment variables.
     - Ideal for data mutations, form handling, and any operation requiring secure server-side execution.
 - **In this project:**
-    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, `signOutUserAction`, etc.).
-    - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. Marked with `'use server';` as it's part of the server-side execution boundary.
-    - `src/features/profile/queries/profile.queries.ts`: Contains Server Actions for fetching profile data (used by TanStack Query).
+    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions.
+    - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. Marked with `'use server';` as it's part of the server-side execution boundary and called by Server Actions.
+    - `src/features/profile/queries/profile.queries.ts`: Contains Server Actions for fetching profile data.
+    - `src/features/profile/services/profile.service.ts`: Marked with `'use server';`.
     - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`, `src/features/profile/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
 
 ### Route Handlers (`route.ts`)
@@ -186,9 +201,10 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 The project follows a feature-based organization within the `src` directory.
 
 - **`/src/app/`**:
-    - Global files (`layout.tsx`, `globals.css`, `page.tsx` for homepage).
-    - **`(auth)/`**: Route group for authentication pages.
-        - `auth/confirm/route.ts`
+    - Global files (`layout.tsx`, `page.tsx` for homepage).
+    - **`(auth)/`**: Route group for authentication pages and related server logic.
+        - `layout.tsx`: Shared two-column layout for auth pages.
+        - `auth/confirm/route.ts`: Server-side handler for OTP verification.
         - `forgot-password/page.tsx`
         - `login/page.tsx`
         - `register/page.tsx`
@@ -201,8 +217,7 @@ The project follows a feature-based organization within the `src` directory.
             - `auth.actions.ts`
         - `services/`: Contains direct Supabase interaction logic.
             - `auth.service.ts`
-        - `queries/`: Server Actions for auth-related data fetching.
-            - `auth.queries.ts`
+        - `queries/`: Server Actions for auth-related data fetching (currently placeholder).
         - `schemas/`: Zod validation schemas.
         - `hooks/`: Custom React hooks specific to authentication.
             - `use-auth.ts`
@@ -214,15 +229,14 @@ The project follows a feature-based organization within the `src` directory.
         - `schemas/`: Zod schemas for profile data (`profile.schema.ts`).
         - `services/`: Services for profile data interaction (`profile.service.ts`).
     - **`homepage/`**: Components related to the main homepage.
-        - `components/`
+        - `components/` (contains `hero-header/`, `hero-content/`, etc.)
 - **`/src/components/`**:
     - `ui/`: Reusable ShadCN UI components.
     - `icons/`: Custom SVG icon components.
-    - `analytics/`: Analytics-related components.
 - **`/src/providers/`**: Global React context providers.
     - `auth-session-provider.tsx`
-    - `posthog-provider.tsx`
-    - `query-client-provider.tsx` (actually named `query-client-provider.tsx`)
+    - `theme-provider.tsx`
+    - `query-client-provider.tsx`
 - **`/src/lib/`**:
     - `supabase/`: Supabase client initialization (`client.ts` for browser, `server.ts` for server-side).
     - `utils.ts`: General utility functions.
@@ -230,6 +244,8 @@ The project follows a feature-based organization within the `src` directory.
     - General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
 - **`/src/stores/`**:
     - `auth.store.ts`: Zustand store, now for minimal, non-auth related global client-side state.
+- **`/src/styles/`**:
+    - `globals.css`: Global styles and Tailwind CSS theme.
 - **`/src/middleware.ts`**:
     - Next.js middleware entry point.
 
@@ -238,7 +254,7 @@ The project follows a feature-based organization within the `src` directory.
 1.  **Supabase Configuration:**
     - [ ] Ensure your new project has `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 2.  **Styling & UI:**
-    - [ ] Customize `src/app/globals.css` (ShadCN theme) or replace UI components.
+    - [ ] Customize `src/styles/globals.css` (ShadCN theme) or replace UI components.
     - [ ] Update `PassForgeLogo` or branding elements.
 3.  **Redirection URLs:**
     - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts`.
@@ -246,19 +262,17 @@ The project follows a feature-based organization within the `src` directory.
     - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action, post-signout redirect in `signOutUserAction`).
     - [ ] Review public paths in `src/features/auth/utils/middleware.utils.ts` for route protection.
 4.  **Error Handling Pages:**
-    - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth/auth-code-error/page.tsx`).
-5.  **Protected Routes Strategy:**
-    - [ ] The `src/features/auth/utils/middleware.utils.ts` already implements a basic route protection strategy. Adjust the `publicPaths` array as needed.
-6.  **User Metadata & Profiles Table:**
-    - [ ] If collecting more data at registration, update schemas in `src/features/auth/schemas/register.schema.ts` and the `signUpNewUser` action.
-    - [ ] If using the `profiles` table, ensure it's created in Supabase with correct columns and RLS policies. Adapt `src/features/profile/services/profile.service.ts` and `src/features/profile/schemas/profile.schema.ts` if your table structure differs from the documented example.
-7.  **Database Schema (RLS):**
-    - [ ] Configure Row Level Security (RLS) policies in your Supabase database, especially for the `profiles` table and any other user-specific data tables.
-8.  **Review Site URL:**
-    - [ ] Ensure that the `origin` header, used to construct `emailRedirectTo` URLs in server actions, correctly reflects your deployed site's URL. For local development, it's usually fine. For production, ensure your hosting provider correctly sets the `Host` or `Origin` header, or consider using an environment variable for the site URL.
+    - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth-code-error/page.tsx`). If this page is within the `(auth)` group, it will inherit the auth layout.
+5.  **User Metadata & Profiles Table:**
+    - [ ] If collecting different data at registration, update schemas in `src/features/auth/schemas/register.schema.ts` and the `signUpNewUser` action.
+    - [ ] Ensure your `profiles` table in Supabase matches the schema in `src/features/profile/schemas/profile.schema.ts` and RLS policies are correctly set up.
+    - [ ] Adapt `src/features/profile/services/profile.service.ts` if your table structure or data merging logic differs.
+6.  **Database Schema (RLS):**
+    - [ ] Configure Row Level Security (RLS) policies in your Supabase database for all user-specific data tables.
+7.  **Review Site URL:**
+    - [ ] Ensure that the `origin` header (used in server actions for `emailRedirectTo`) or a reliable environment variable correctly reflects your deployed site's URL.
 
 ## Conclusion
 
-This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
+This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query, with Zustand available for other global client state. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
 The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy.
-
