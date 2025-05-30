@@ -13,14 +13,14 @@ This document provides a comprehensive guide to understanding how Supabase clien
 2.  **`@supabase/ssr` Package:** This package is specifically designed for server-side rendering (SSR) and static site generation (SSG) frameworks like Next.js. It helps manage user sessions by handling cookies securely on the server.
 
 3.  **Client Types:**
-    *   **Browser Client:** Used in Client Components (`'use client'`) for direct interactions from the user's browser.
-    *   **Server Client:** Used in Server Components, Route Handlers, Server Actions (`'use server'`), and Service files for operations that need to occur on the server, often involving cookie management for sessions.
+    *   **Browser Client:** Used in Client Components (`'use client'`) for direct interactions from the user's browser. Created by `createBrowserClient` from `@supabase/ssr`.
+    *   **Server Client:** Used in Server Components, Route Handlers, Server Actions (`'use server'`), and Service files for operations that need to occur on the server, often involving cookie management for sessions. Created by `createServerClient` from `@supabase/ssr`.
 
 ## Supabase Client Initialization Files
 
 *   **Location:** `/src/lib/supabase/`
 *   **Responsibility:** To provide standardized functions for creating Supabase client instances tailored for either client-side or server-side use.
-*   **Important Note on Imports:** Due to how Next.js handles server-only and client-only code, it's crucial to import the correct client creation function directly from its specific file (`client.ts` or `server.ts`) rather than through a barrel file (`index.ts`) that exports both. This helps prevent errors related to server-only code being bundled for the client.
+*   **Important Note on Imports:** Always import the correct client creation function *directly* from its specific file (`client.ts` or `server.ts`) rather than through a barrel file that might cause confusion for the Next.js build process regarding server-only code.
 
 ### 1. `/src/lib/supabase/client.ts`
 
@@ -42,28 +42,18 @@ This document provides a comprehensive guide to understanding how Supabase clien
     *   It directly accesses environment variables because it runs in the browser where `process.env.NEXT_PUBLIC_*` variables are available.
     *   This client does not handle cookie storage/retrieval itself; that's managed by Supabase's JS library interacting with the browser's cookie store.
     *   The `createClient` function here is **synchronous**.
-*   **When to Use:** Import and call `createClient()` from this file in any Client Component (`'use client'`) that needs to interact with Supabase.
-    ```typescript
-    // Example in a Client Component (e.g., src/features/auth/components/reset-password-form.tsx)
-    'use client';
-    import { createClient } from '@/lib/supabase/client'; // Direct import
-    import { useEffect, useState } from 'react';
+*   **When to Use:** Import and call `createClient()` from this file in any Client Component (`'use client'`) or client-side utility that needs to interact with Supabase *without* server-side cookie management.
+    *   **Example (`AuthSessionProvider`):**
+        ```typescript
+        // src/providers/auth-session-provider.tsx
+        'use client';
+        import { createClient } from '@/lib/supabase/client'; // Direct import
+        import { useState, useEffect, createContext /* ... */ } from 'react';
 
-    function UserProfile() {
-      const supabase = createClient(); // Synchronous call, no 'await' needed
-      const [user, setUser] = useState(null);
-
-      useEffect(() => {
-        const fetchUser = async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          // @ts-ignore
-          setUser(user);
-        };
-        fetchUser();
-      }, [supabase]); // supabase client instance is stable
-      // ... render UI ...
-    }
-    ```
+        // ...
+        const [supabaseClient] = useState(() => createClient()); // Stable instance
+        // ...
+        ```
 
 ### 2. `/src/lib/supabase/server.ts`
 
@@ -99,7 +89,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
             },
             remove(name: string, options: CookieOptions) { // Ensure remove is also handled
               try {
-                cookieStore.set(name, '', { ...options, path: '/' }); // Common way to remove
+                cookieStore.set(name, '', { ...options, path: '/' });
               } catch {
                 // Same as setAll, ignore if called from Server Component and middleware handles it
               }
@@ -110,20 +100,19 @@ This document provides a comprehensive guide to understanding how Supabase clien
     }
     ```
 *   **Explanation:**
-    *   **`"use server";`**: This directive at the top of the file is critical. It marks the entire module as server-only. This ensures that code within this file, especially `cookies()` from `next/headers`, is only ever executed on the server.
+    *   **`"use server";`**: This directive at the top of the file is critical. It marks the entire module as server-only.
     *   Uses `createServerClient` from `@supabase/ssr`.
     *   **`async function createClient()`**: The function is `async` because `cookies()` (which provides access to the request's cookies) can only be called in an async context or specific server-side entry points. Therefore, any code calling this `createClient` function **must `await` it**.
     *   **Cookie Management:** The `cookies` option passed to `createServerClient` is vital. It tells the Supabase client how to read and write cookies using Next.js's server-side cookie store.
 *   **When to Use:**
-    *   **Server Actions (e.g., in `src/features/auth/actions/auth.actions.ts`):** These actions typically call service functions.
+    *   **Server Actions (e.g., in `src/features/auth/actions/auth.actions.ts`):** These actions often call service functions.
     *   **Service Files (e.g., `src/features/auth/services/auth.service.ts`):**
         ```typescript
         // src/features/auth/services/auth.service.ts
         'use server'; // Mark service files as server-only
         import { createClient } from '@/lib/supabase/server'; // Direct import
-        import type { SignInWithPasswordCredentials } from '@supabase/supabase-js';
 
-        export async function signInWithPasswordWithSupabase(credentials: SignInWithPasswordCredentials) {
+        export async function signInWithPasswordWithSupabase(credentials) {
           const supabase = await createClient(); // MUST await
           return supabase.auth.signInWithPassword(credentials);
         }
@@ -132,7 +121,6 @@ This document provides a comprehensive guide to understanding how Supabase clien
         ```typescript
         // src/app/(auth)/auth/confirm/route.ts
         import { createClient } from '@/lib/supabase/server'; // Direct import
-        import { type NextRequest, NextResponse } from 'next/server';
         // ...
 
         export async function GET(request: NextRequest) {
@@ -140,7 +128,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
           // ... logic using supabase.auth ...
         }
         ```
-    *   **Server Components (for data fetching directly in the component):**
+    *   **Server Components (for data fetching directly):**
         ```typescript
         // Example Server Component
         import { createClient } from '@/lib/supabase/server'; // Direct import
@@ -170,17 +158,17 @@ This document provides a comprehensive guide to understanding how Supabase clien
     *   **`'use client'`**: Required for components that use React Hooks (`useState`, `useEffect`) or browser-specific APIs. The Supabase browser client (from `src/lib/supabase/client.ts`) is suitable here.
     *   **`'use server'`**:
         *   For Server Actions (e.g., `auth.actions.ts`): Marks functions that execute exclusively on the server, callable from client components. These actions need the server client (often via services) to interact with Supabase and manage sessions.
-        *   For Service files (e.g., `auth.service.ts`): If they are intended to be part of the server-only boundary and use server-only features (like the server Supabase client), they should also be marked with `'use server';`. This ensures they are not accidentally bundled into client JavaScript.
-        *   For modules like `src/lib/supabase/server.ts`: If a module uses server-only APIs like `cookies()` from `next/headers`, it *must* be marked with `'use server';` or be imported *only* by other server-only modules/components.
-3.  **Session Integrity:** The `createServerClient` (from `@supabase/ssr`) used in `src/lib/supabase/server.ts` and in the middleware, coupled with the middleware's `getUser()` call, ensures that user sessions are correctly maintained and refreshed across server-rendered pages and API interactions.
+        *   For Service files (e.g., `auth.service.ts`): If they are intended to be part of the server-only boundary and use server-only features (like the server Supabase client), they should also be marked with `'use server';`.
+        *   For modules like `src/lib/supabase/server.ts`: If a module uses server-only APIs like `cookies()` from `next/headers`, it *must* be marked with `'use server';`.
+3.  **Session Integrity:** The `createServerClient` (from `@supabase/ssr`) used in `src/lib/supabase/server.ts` and in the middleware, coupled with the middleware's `getUser()` call, ensures that user sessions are correctly maintained and refreshed.
 
-## Import Strategy: Direct Imports Only
+## Direct Imports for Clarity
 
 *   **Client-side (`/src/lib/supabase/client.ts`):** Always import directly:
     `import { createClient } from '@/lib/supabase/client';`
 *   **Server-side (`/src/lib/supabase/server.ts`):** Always import directly:
     `import { createClient } from '@/lib/supabase/server';`
-*   **No Barrel File for Supabase Clients:** We've removed `src/lib/supabase/index.ts` to prevent confusion and ensure the Next.js build process correctly distinguishes between client and server module usage.
+*   The barrel file `src/lib/supabase/index.ts` has been removed to prevent confusion.
 
 ## Common Pitfalls for Junior Developers:
 
@@ -194,9 +182,11 @@ This document provides a comprehensive guide to understanding how Supabase clien
     *   Adding `'use server'` to files that don't export async functions (like Zod schema files).
     *   Forgetting `'use server'` in files containing Server Actions or Service files that should be server-only and use server-side utilities.
     *   Forgetting `'use server'` on `src/lib/supabase/server.ts` itself.
-4.  **Middleware Configuration:** Not understanding that the middleware is essential for keeping sessions alive and for route protection. Forgetting the `await supabase.auth.getUser()` call in middleware can lead to stale sessions not being refreshed or route protection not working.
-5.  **Import Paths:** Always use direct imports for Supabase client creation functions to avoid ambiguity.
+4.  **Middleware Configuration:** Not understanding that the middleware is essential for keeping sessions alive and for route protection.
+5.  **`AuthSessionProvider` (`@/providers/auth-session-provider.tsx`):**
+    *   This provider is responsible for initializing the client-side Supabase instance and listening to `onAuthStateChange`.
+    *   It's crucial that the `supabaseClient` within this provider is instantiated correctly (e.g., using `useState(() => createClient())`) to ensure a stable instance across renders.
+    *   Components relying on client-side auth state (like those using the `useAuth` hook) depend on this provider working correctly.
 
 By understanding these distinctions and following the patterns in this project, developers can confidently work with Supabase authentication in a Next.js App Router environment.
-    
-    
+

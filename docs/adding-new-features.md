@@ -1,0 +1,368 @@
+
+# Adding New Features: Example - User Profile Page
+
+This document guides you through adding a new feature to the PassForge application, using a "User Profile" page as an example. It assumes that the core authentication state management (React Context via `AuthSessionProvider` for raw session, TanStack Query via `useUserProfileQuery` for profile data, composed by the `useAuth` hook) has been integrated as described in `docs/integrating-state-and-data-fetching.md`.
+
+## I. Introduction
+
+The goal is to create a page where authenticated users can view their profile information. This guide will cover:
+1.  Planning the feature.
+2.  Conceptual database setup (Supabase) and `UserProfile` schema.
+3.  Backend development (Service functions, Server Actions for TanStack Query).
+4.  Frontend development (Next.js Page, React Component using `useAuth` and `useUserProfileQuery`).
+5.  Navigation.
+
+This process can be adapted for adding other data-driven features to the application.
+
+## II. Prerequisites
+
+Before proceeding, ensure you understand:
+*   The existing authentication flow and project structure (see `docs/project-overview.md`).
+*   How `AuthSessionProvider`, `useUserProfileQuery`, and the `useAuth` hook work together (see `docs/integrating-state-and-data-fetching.md`).
+*   The Next.js App Router, Server Components, and Client Components.
+
+## III. Step 1: Planning the User Profile Feature
+
+### A. User Stories
+*   **As an authenticated user, I want to view my profile information so that I can see my details.** (Focus of this guide)
+*   (Future) As an authenticated user, I want to edit my profile information so that I can keep my details up-to-date.
+
+### B. Data Model & Schema (`UserProfile`)
+The profile page will display data defined by the `UserProfileSchema` (`@/features/profile/schemas/profile.schema.ts`). This schema includes fields like:
+*   `id` (UUID)
+*   `email` (from `auth.users`)
+*   `firstName`
+*   `lastName`
+*   `gender`
+*   `ageCategory`
+*   `specificAge`
+*   `language`
+*   `avatarUrl`
+*   `role`
+*   Stripe and subscription-related fields
+*   `createdAt`, `updatedAt`
+
+This detailed schema is defined in `src/features/profile/schemas/profile.schema.ts` and aligns with the `profiles` table structure outlined in `docs/implementation-consultant.md`.
+
+## IV. Step 2: Supabase Database Setup (Conceptual Review)
+
+Ensure your Supabase database has the `profiles` table as defined (or similar to the example in `docs/implementation-consultant.md`), with appropriate columns and Row Level Security (RLS) policies.
+
+*   **`profiles` Table:** Should have `id` (referencing `auth.users.id`) and columns matching the `UserProfileSchema`.
+*   **RLS Policies:**
+    *   Users can read their own profile.
+    *   Users can (typically) insert their own profile once.
+    *   Users can update their own profile.
+*   **`handle_new_user` Trigger (Optional but Recommended):** A Supabase database function can automatically create a `profiles` row when a new user signs up in `auth.users`.
+
+## V. Step 3: Backend - Service and Query Action (Already Implemented)
+
+The core backend logic for fetching the user profile is already in place as per `docs/implementation-consultant.md`:
+
+### A. Zod Schema for Profile Data (`src/features/profile/schemas/profile.schema.ts`)
+*   This file defines `UserProfileSchema` and the `UserProfile` type. It should match your `profiles` table structure.
+
+### B. Service Function to Fetch Profile Data (`src/features/profile/services/profile.service.ts`)
+*   The `getProfileByUserId(userId: string)` function:
+    *   Is a Server Action (`'use server';`).
+    *   Uses the server-side Supabase client.
+    *   Fetches data from the `profiles` table and `auth.users` (for email).
+    *   Merges this data to match the `UserProfileSchema`.
+    *   Returns `{ data: UserProfile | null; error: Error | null }`.
+
+### C. Server Action (Query Function for TanStack Query - `src/features/profile/queries/profile.queries.ts`)
+*   The `getCurrentUserProfile(): Promise<UserProfile>` Server Action:
+    *   Gets the authenticated user's ID.
+    *   Calls `getProfileByUserId`.
+    *   Validates the result against `UserProfileSchema`.
+    *   Returns the `UserProfile` or throws an error. This is used by TanStack Query.
+
+## VI. Step 4: Frontend - Page and Display Component
+
+### A. Create the Profile Page Route
+**Create `src/app/profile/page.tsx` (if not already present or adapt if it exists):**
+```tsx
+// src/app/profile/page.tsx
+import { ProfileDisplay } from '@/features/profile/components';
+import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
+import { getCurrentUserProfile } from '@/features/profile/queries';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server'; // For server-side auth check
+
+// This page should be protected. Middleware should handle redirection if not authenticated.
+// We add an additional check here for robustness.
+export default async function ProfilePage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    // This should ideally be caught by middleware, but good to have a fallback.
+    redirect('/login?message=Please log in to view your profile.');
+  }
+
+  const queryClient = new QueryClient();
+
+  // Optional: Prefetch data on the server for faster initial load
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: ['userProfile', user.id],
+      queryFn: getCurrentUserProfile,
+    });
+  } catch (error) {
+    console.error("Failed to prefetch user profile:", error);
+    // Handle prefetch error, e.g. by not dehydrating or showing a generic error on client
+  }
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <main className="container mx-auto py-8 px-4">
+        <h1 className="text-3xl font-bold mb-6 text-foreground">Your Profile</h1>
+        <ProfileDisplay />
+      </main>
+    </HydrationBoundary>
+  );
+}
+```
+
+### B. Create the Profile Display Component
+This component uses the `useAuth` hook to get both the raw user and the detailed profile.
+
+**Create/Update `src/features/profile/components/profile-display.tsx`:**
+```tsx
+// src/features/profile/components/profile-display.tsx
+'use client';
+
+import { useAuth } from '@/features/auth/hooks'; // The composite auth hook
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserCircle2 } from 'lucide-react';
+
+export function ProfileDisplay() {
+  // useAuth provides the composite state:
+  // user: raw Supabase user from AuthSessionProvider
+  // profile: detailed UserProfile from useUserProfileQuery (TanStack Query)
+  // isAuthenticated: boolean
+  // isLoading: composite loading (session OR profile if authenticated)
+  // error: composite error
+  // isSessionLoading: boolean for session provider's initial load
+  // sessionError: error from session provider
+  const {
+    user,
+    profile,
+    isAuthenticated,
+    isLoading, // Composite loading
+    error,     // Composite error
+    isSessionLoading, // Use this for the initial "Am I logged in?" check
+  } = useAuth();
+
+  if (isSessionLoading) { // Show loading while session is being determined
+    return (
+      <Card className="w-full max-w-lg mx-auto animate-pulse">
+        <CardHeader>
+          <Skeleton className="h-8 w-3/4 mb-2" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center space-x-4">
+            <Skeleton className="h-24 w-24 rounded-full" />
+            <div className="space-y-2 flex-grow">
+              <Skeleton className="h-6 w-4/5" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          </div>
+          {/* Add more skeleton elements as needed */}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!isAuthenticated) { // After session loading, check if actually authenticated
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Not Authenticated</AlertTitle>
+        <AlertDescription>
+          Please log in to view your profile. You may be redirected.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // At this point, session is resolved and user is authenticated.
+  // Now check profile-specific loading or errors.
+  // The 'isLoading' from useAuth includes profile loading.
+  if (isLoading && !profile) { // Still loading profile data
+     return (
+      <Card className="w-full max-w-lg mx-auto animate-pulse">
+        <CardHeader>
+          <Skeleton className="h-8 w-3/4 mb-2" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardHeader>
+        <CardContent className="space-y-6">
+            <p className="text-muted-foreground">Loading profile details...</p>
+          {/* Skeletons for profile specific fields */}
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  if (error && !profile) { // Check composite error if profile is still missing
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Error Loading Profile</AlertTitle>
+        <AlertDescription>
+          {error.message || 'An unknown error occurred while fetching your profile.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!profile) { // Should be covered by isLoading or error, but as a fallback
+      return (
+          <Card className="w-full max-w-lg mx-auto">
+              <CardHeader>
+                  <CardTitle>Profile Not Found</CardTitle>
+                  <CardDescription>We couldn&apos;t find your profile details.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <p>It seems your profile is not yet complete or there was an issue retrieving it. Please try again later or contact support if the issue persists.</p>
+              </CardContent>
+          </Card>
+      );
+  }
+
+  // Helper to get initials for Avatar Fallback
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
+    const first = firstName?.[0] || '';
+    const last = lastName?.[0] || '';
+    return `${first}${last}`.toUpperCase() || <UserCircle2 size={24} />;
+  };
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg">
+      <CardHeader className="text-center bg-muted/30 p-6 rounded-t-lg">
+        <div className="flex justify-center mb-4">
+          <Avatar className="h-28 w-28 text-4xl border-4 border-background shadow-md">
+            <AvatarImage src={profile.avatarUrl || undefined} alt={`${profile.firstName} ${profile.lastName}`} />
+            <AvatarFallback className="bg-primary text-primary-foreground">
+                {getInitials(profile.firstName, profile.lastName)}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        <CardTitle className="text-3xl font-bold">
+          {profile.firstName || profile.lastName ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : (user?.email || 'User Profile')}
+        </CardTitle>
+        <CardDescription className="text-md text-muted-foreground">
+            Role: {profile.role || 'user'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</p>
+              <p className="text-foreground text-lg">{profile.email || 'Not available'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">User ID</p>
+              <p className="text-foreground text-lg truncate">{profile.id}</p>
+            </div>
+        </div>
+        
+        {(profile.firstName || profile.lastName) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {profile.firstName && (
+                <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">First Name</p>
+                    <p className="text-foreground text-lg">{profile.firstName}</p>
+                </div>
+                )}
+                {profile.lastName && (
+                <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Last Name</p>
+                    <p className="text-foreground text-lg">{profile.lastName}</p>
+                </div>
+                )}
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {profile.language && (
+            <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferred Language</p>
+                <p className="text-foreground text-lg">{profile.language}</p>
+            </div>
+            )}
+            {profile.ageCategory && (
+            <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Age Category</p>
+                <p className="text-foreground text-lg">{profile.ageCategory}</p>
+            </div>
+            )}
+        </div>
+
+        {profile.subscriptionStatus && (
+             <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Subscription Details</p>
+                <div className="p-4 bg-muted/50 rounded-md space-y-1">
+                    <p className="text-sm"><span className="font-medium text-foreground">Status:</span> {profile.subscriptionStatus}</p>
+                    {profile.subscriptionTier && <p className="text-sm"><span className="font-medium text-foreground">Tier:</span> {profile.subscriptionTier}</p>}
+                    {profile.subscriptionPeriod && <p className="text-sm"><span className="font-medium text-foreground">Period:</span> {profile.subscriptionPeriod}</p>}
+                    {profile.subscriptionEndDate && <p className="text-sm"><span className="font-medium text-foreground">Renews/Expires:</span> {new Date(profile.subscriptionEndDate).toLocaleDateString()}</p>}
+                </div>
+            </div>
+        )}
+         {/* Add more profile fields here as needed */}
+      </CardContent>
+    </Card>
+  );
+}
+```
+**Create `src/features/profile/components/index.ts` (Barrel File if not exists):**
+```typescript
+// src/features/profile/components/index.ts
+export * from './profile-display';
+```
+
+## VII. Step 6: Navigation
+
+Add a link to the new profile page in a relevant navigation component (e.g., `src/features/homepage/components/header.tsx`):
+
+```tsx
+// Example modification in src/features/homepage/components/header.tsx
+// ... other imports
+import { useAuth } from '@/features/auth/hooks';
+
+export function HomepageHeader() {
+  const { isAuthenticated, isLoading } = useAuth(); // Get auth state
+
+  return (
+    <header /* ... */ >
+      <nav /* ... */ >
+        {/* ... other nav items ... */}
+        {!isLoading && isAuthenticated && (
+            <Button variant="secondary" asChild size="sm">
+                <Link href="/profile">Profile</Link>
+            </Button>
+        )}
+        {/* ... other nav items ... */}
+      </nav>
+    </header>
+  );
+}
+```
+
+## VIII. Conclusion and Next Steps
+
+You've now outlined how to add a "User Profile" page that integrates with the established authentication architecture:
+*   Leveraging the `useAuth` hook for comprehensive auth state.
+*   Fetching detailed profile data via `useUserProfileQuery` (TanStack Query).
+*   Displaying the information in a dedicated component.
+
+**Next Steps (Beyond this Guide):**
+*   **Implement Edit Profile:** Create new Server Actions (mutations) for updating profile data, new Zod schemas for edit validation, and an editable form component. Use `useMutation` from TanStack Query to handle updates and revalidate the profile query.
+*   **File Uploads for Avatar:** Implement avatar uploads (e.g., to Supabase Storage) and update the profile.
+*   **Testing:** Write tests for your components, actions, and services.
+
+This guide provides a template for extending the application with new features in a structured and maintainable way.
+

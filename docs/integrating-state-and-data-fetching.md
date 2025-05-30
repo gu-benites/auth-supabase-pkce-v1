@@ -1,268 +1,92 @@
 
-# Integrating Global State (Zustand) and Data Fetching (TanStack Query) v2
+# Integrating State and Data Fetching (Context, TanStack Query, Zustand)
 
-This document provides guidance on how to integrate global state management using Zustand and server state management using TanStack Query (React Query) with the existing Supabase authentication flow in this Next.js project. These integrations are common next steps for building more complex user experiences, such as displaying user-specific information globally or fetching data for dashboards.
+This document outlines the recommended approach for managing state and fetching data in this Next.js project, particularly focusing on authentication state, user profile data, and global client-side state. We leverage React Context, TanStack Query (React Query), and Zustand for distinct purposes to create a robust and scalable architecture.
 
-## I. Global User State with Zustand (`useAuth` Hook)
+## Core Principles:
 
-Zustand is a small, fast, and scalable state-management solution. We can use it to create a global store for the authenticated user's information and status, accessible via a custom `useAuth` hook.
+1.  **Raw Session State (React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to make the raw Supabase user session (`User` object), initial session loading status, and session-related errors available to its children. This is the foundational layer for knowing if a Supabase session exists.
+2.  **Server State & Data Fetching (TanStack Query):** TanStack Query is the primary tool for fetching, caching, and synchronizing server state. This includes detailed user profiles and any other data retrieved from your backend (Supabase).
+3.  **Composite Auth State Hook (`useAuth`):** The `useAuth` hook (`@/features/auth/hooks/use-auth.ts`) acts as the main interface for client components to access comprehensive authentication information. It consumes the raw session from `AuthSessionProvider` and fetches the detailed user profile using TanStack Query (via `useUserProfileQuery`).
+4.  **Minimal Global Client-Side State (Zustand):** Zustand (`@/stores/auth.store.ts`) is reserved for global client-side state that is *not* directly tied to server data or core authentication sessions (e.g., UI preferences, theme settings). Its role in direct auth state management has been minimized.
 
-**Goal:** Create a `useAuth` hook that provides access to the current user object, their profile (if any), and authentication status (e.g., loading, authenticated, unauthenticated) throughout the application.
+## I. Authentication State Management
 
-### 1. Installation
+Client components should primarily use the `useAuth` hook to get information about the current user and their authentication status.
 
-Zustand should be installed if not already present:
-```bash
-npm install zustand
-# or
-yarn add zustand
-```
+### 1. `AuthSessionProvider` (React Context - `src/providers/auth-session-provider.tsx`)
+*   **Purpose:** Provides the raw Supabase `User` object and tracks the initial loading state of the Supabase session.
+*   **Implementation:**
+    *   Client Component (`'use client'`).
+    *   Uses the Supabase browser client (`@/lib/supabase/client`).
+    *   Initializes a Supabase `onAuthStateChange` listener to reactively update the `user` object.
+    *   Exposes `{ user: User | null, isLoading: boolean, error: Error | null }` via React Context.
+    *   `isLoading` here specifically refers to the process of determining the initial session state.
+*   **Usage:** Wrapped around the root layout in `src/app/layout.tsx`.
 
-### 2. Creating the Auth Store
+### 2. `useUserProfileQuery` (TanStack Query Hook - `src/features/profile/hooks/use-user-profile-query.ts`)
+*   **Purpose:** Fetches the detailed user profile data from the backend.
+*   **Implementation:**
+    *   Client-side hook (`'use client'`).
+    *   Uses TanStack Query's `useQuery`.
+    *   `queryKey`: `['userProfile', userId]` (dynamically uses the authenticated user's ID).
+    *   `queryFn`: Calls the `getCurrentUserProfile` Server Action (`@/features/profile/queries/profile.queries.ts`), which in turn calls a service function to fetch data from your `profiles` table (and merges with `auth.users` data like email).
+    *   `enabled`: Typically enabled only when a user ID is available (i.e., user is authenticated).
+    *   Manages its own loading, error, and data states for the profile fetching operation.
+*   **Schema**: Uses `UserProfileSchema` from `@/features/profile/schemas/profile.schema.ts` for data shape.
 
-Create a new file, for example, `src/stores/auth.store.ts`:
+### 3. `useAuth` Hook (Composite Hook - `src/features/auth/hooks/use-auth.ts`)
+*   **Purpose:** Provides a unified and convenient way for components to access all relevant authentication and user information.
+*   **Implementation:**
+    *   Client-side hook (`'use client'`).
+    *   Consumes `AuthSessionContext` (via `useAuthSession()`) to get the raw `user`, `isSessionLoading`, and `sessionError`.
+    *   Calls `useUserProfileQuery()` to get the `profile` data and its associated loading/error states.
+    *   **Combines these states**:
+        *   `user`: The raw Supabase user object.
+        *   `profile`: The detailed user profile data (from TanStack Query).
+        *   `isAuthenticated`: Boolean derived from `!!user`.
+        *   `isLoading`: Composite boolean (true if session is loading OR profile is loading when authenticated).
+        *   `error`: Composite error (prioritizes session error, then profile error if authenticated).
+        *   `isSessionLoading`: Boolean reflecting only the session provider's loading state.
+        *   `sessionError`: Error object reflecting only session provider errors.
+*   **Usage:** This is the **recommended hook** for most client components needing auth information.
 
-```typescript
-// src/stores/auth.store.ts
-import { create } from 'zustand';
-import type { User } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/client'; // Client-side Supabase instance
-
-// Define a type for your user profile if you have one in a separate Supabase table
-// This is distinct from user_metadata which is simpler key-value data.
-interface UserProfile {
-  id: string; // Should match the auth.users.id
-  username?: string;
-  avatar_url?: string;
-  // Add other profile fields from your 'profiles' table
-}
-
-interface AuthState {
-  user: User | null;
-  profile: UserProfile | null; // For data from a dedicated 'profiles' table
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  error: Error | null;
-  actions: {
-    setUserAndProfile: (user: User | null, profileData?: Partial<UserProfile> | null) => void;
-    setLoading: (loading: boolean) => void;
-    setError: (error: Error | null) => void;
-    clearAuth: () => void;
-    fetchUserProfile: (userId: string) => Promise<void>;
-  };
-}
-
-const supabase = createClient(); // Use the client-side Supabase instance
-
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  profile: null,
-  isLoading: true, // Start true to check initial session
-  isAuthenticated: false,
-  error: null,
-  actions: {
-    setUserAndProfile: (user, profileData = null) => {
-      // Combine user_metadata (like first_name, last_name) with profileData from a 'profiles' table
-      let combinedProfile: UserProfile | null = null;
-      if (user) {
-        combinedProfile = {
-          id: user.id,
-          // Prioritize data from a dedicated 'profiles' table if provided
-          ...(profileData || {}),
-          // Fallback or supplement with user_metadata if needed and not in profileData
-          // Example: if 'username' isn't in your UserProfile from the table, but is in metadata
-          // username: profileData?.username || user.user_metadata?.username,
-          // firstName: user.user_metadata?.first_name, // Example from registration
-          // lastName: user.user_metadata?.last_name,   // Example from registration
-        };
-      }
-
-      set({
-        user,
-        profile: combinedProfile,
-        isAuthenticated: !!user,
-        isLoading: false,
-        error: null,
-      });
-    },
-    setLoading: (loading) => set({ isLoading: loading }),
-    setError: (error) => set({ error, isLoading: false }),
-    clearAuth: () => {
-      set({
-        user: null,
-        profile: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
-    },
-    fetchUserProfile: async (userId: string) => {
-      if (!userId) {
-        set({ profile: null }); // Clear profile if no user ID
-        return;
-      }
-      try {
-        set({ isLoading: true }); // Consider a separate profileLoading state if preferred
-
-        // IMPORTANT: This assumes you have a 'profiles' table in Supabase
-        // with RLS policies allowing users to read their own profile.
-        // Create this table with columns like 'id' (matches auth.users.id), 'username', 'avatar_url', etc.
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles') // Replace 'profiles' with your actual table name
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116: 0 rows means no profile, not an error
-            throw profileError;
-        }
-
-        // Get current user to potentially merge with user_metadata later if needed
-        const currentUser = get().user;
-        if (currentUser) {
-          // Call setUserAndProfile to update both user and profile state
-          // It handles merging user_metadata if your UserProfile type expects it
-          get().actions.setUserAndProfile(currentUser, profileData as UserProfile | null);
-        } else {
-           set({ profile: profileData as UserProfile | null, isLoading: false });
-        }
-
-      } catch (e) {
-        console.error('Error fetching user profile:', e);
-        set({ error: e as Error, profile: null, isLoading: false });
-      }
-    },
-  },
-}));
-
-// Helper to initialize and subscribe to auth changes
-// This should be called once when the application mounts.
-export function initializeAuthListener() {
-  const { setUserAndProfile, clearAuth, fetchUserProfile } = useAuthStore.getState().actions;
-
-  useAuthStore.setState({ isLoading: true }); // Set initial loading
-
-  supabase.auth.getSession().then(async ({ data: { session } }) => {
-    if (session?.user) {
-      setUserAndProfile(session.user); // Set user first
-      // Fetch profile data from your 'profiles' table if you have one
-      // Or rely on user_metadata (like first_name, last_name from registration)
-      // which is already part of session.user
-      await fetchUserProfile(session.user.id); // Call if you have a separate 'profiles' table
-    } else {
-      clearAuth();
-    }
-    useAuthStore.setState({ isLoading: false });
-  });
-
-  const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-    const user = session?.user ?? null;
-    useAuthStore.setState({ isLoading: true });
-    if (user) {
-      setUserAndProfile(user);
-      await fetchUserProfile(user.id); // Call if you have a separate 'profiles' table
-    } else {
-      clearAuth();
-    }
-    useAuthStore.setState({ isLoading: false });
-  });
-
-  return () => {
-    authListener?.unsubscribe();
-  };
-}
-
-// Custom hook for easy access to state and actions
-export const useAuth = () => useAuthStore((state) => ({
-    user: state.user,
-    profile: state.profile, // Contains combined data if 'profiles' table is used
-    isLoading: state.isLoading,
-    isAuthenticated: state.isAuthenticated,
-    error: state.error,
-    actions: state.actions,
-    // You can expose user_metadata directly if needed:
-    userMetadata: state.user?.user_metadata,
-}));
-```
-
-**Note on `profiles` Table and `user_metadata`:**
-*   `user_metadata` (e.g., `first_name`, `last_name` set during sign-up via `src/features/auth/actions/auth.actions.ts`) is stored directly in `auth.users` and is good for simple, less frequently changing data. The `useAuthStore` example above includes `user_metadata` as part of the `user` object.
-*   A separate `profiles` table (e.g., with `id`, `username`, `avatar_url`) is better for more complex, mutable user profile data that you might want to query or update independently. **You need to create this table and set up RLS policies for it in Supabase.**
-*   The `fetchUserProfile` example above assumes you have such a `profiles` table. Adjust as needed. If you primarily rely on `user_metadata` from registration, you might not need `fetchUserProfile` unless you add a `profiles` table later.
-
-### 3. Initializing the Auth Listener
-
-Call `initializeAuthListener` once when your application mounts. A client component provider is a clean way to do this.
-
-**Create `src/components/providers/auth-state-provider.tsx`:**
+**Example: `HomepageHeader` using the new `useAuth` hook**
 ```tsx
-// src/components/providers/auth-state-provider.tsx
-'use client';
-
-import { useEffect } from 'react';
-import { initializeAuthListener } from '@/stores/auth.store'; // Adjust path if needed
-
-export function AuthStateProvider({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const unsubscribe = initializeAuthListener();
-    return () => unsubscribe(); // Cleanup listener on unmount
-  }, []);
-
-  return <>{children}</>;
-}
-```
-
-**Use it in `src/app/layout.tsx`:**
-```tsx
-// src/app/layout.tsx
-import { Geist, Geist_Mono } from 'next/font/google'; // Or your preferred fonts
-import './globals.css';
-import { Toaster } from '@/components/ui';
-import { PHProvider } from '@/components/providers/posthog-provider'; // Assuming you have this
-import { DynamicPostHogPageview } from '@/components/analytics/dynamic-posthog-pageview'; // Assuming
-import { AuthStateProvider } from '@/components/providers/auth-state-provider'; // New Provider
-
-const geistSans = Geist(/* ... */); // Configure your fonts
-const geistMono = Geist_Mono(/* ... */);
-
-export const metadata = { /* ... */ };
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode; }>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <PHProvider> {/* Existing PostHog Provider */}
-        <AuthStateProvider> {/* New AuthStateProvider (wraps children) */}
-          <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-            <DynamicPostHogPageview />
-            {children}
-            <Toaster />
-          </body>
-        </AuthStateProvider>
-      </PHProvider>
-    </html>
-  );
-}
-```
-
-### 4. Using the `useAuth` Hook
-
-Now, any client component can use `useAuth` to access authentication state and user/profile information.
-
-```tsx
-// Example in src/features/homepage/components/header.tsx (Client Component)
+// src/features/homepage/components/header.tsx
 'use client';
 
 import Link from 'next/link';
 import { PassForgeLogo } from '@/components/icons';
-import { Button, Skeleton } from '@/components/ui';
-import { useAuth } from '@/stores/auth.store'; // Adjust path if needed
-import { signOutUserAction } from '@/features/auth/actions'; // Use the Server Action for sign out
+import { Loader2, UserCircle2 } from 'lucide-react';
+import { Button, Avatar, AvatarFallback, AvatarImage } from '@/components/ui';
+import { signOutUserAction } from '@/features/auth/actions';
+import { useAuth } from '@/features/auth/hooks'; // The new composite hook
 
-export function HomepageHeader() {
-  const { user, profile, isAuthenticated, isLoading, userMetadata } = useAuth();
+export function HomepageHeader(): JSX.Element {
+  // isLoading reflects combined session and profile loading if user is present
+  // isAuthenticated is true if session user exists
+  const { user, profile, isAuthenticated, isLoading, error } = useAuth();
 
-  // Display name preference: profile.username -> userMetadata.first_name -> user.email
-  const displayName = profile?.username || userMetadata?.first_name || user?.email?.split('@')[0];
+  const getDisplayName = () => {
+    if (profile?.firstName) return profile.firstName;
+    // @ts-ignore user_metadata exists but TypeScript might not know its shape
+    if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'User';
+  };
+
+  const getInitials = () => {
+    const firstName = profile?.firstName || user?.user_metadata?.first_name;
+    // @ts-ignore
+    const lastName = profile?.lastName || user?.user_metadata?.last_name;
+    const firstInitial = firstName?.[0] || '';
+    const lastInitial = lastName?.[0] || '';
+    const initials = `${firstInitial}${lastInitial}`.toUpperCase();
+    return initials || <UserCircle2 size={18} />;
+  };
+  
+  const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url;
 
   return (
     <header className="py-4 px-6 md:px-8 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
@@ -274,32 +98,35 @@ export function HomepageHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
-          {isLoading ? (
+          {isLoading ? ( // Use composite isLoading
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : isAuthenticated ? ( // Check isAuthenticated
             <>
-              <Skeleton className="h-8 w-24" />
-              <Skeleton className="h-8 w-20 rounded-md" />
-            </>
-          ) : isAuthenticated && user ? (
-            <>
-              <span className="text-sm text-foreground">
-                Hi, {displayName || 'User'}
+              <span className="text-sm text-foreground hidden sm:inline">
+                Hi, {getDisplayName()}
               </span>
+              <Avatar className="h-8 w-8 text-sm">
+                <AvatarImage src={avatarUrl} alt={getDisplayName()} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
               <form action={signOutUserAction} className="inline-flex">
-                <Button variant="ghost" type="submit">Sign Out</Button>
+                <Button variant="ghost" type="submit" size="sm">Sign Out</Button>
               </form>
-              <Button variant="secondary" asChild>
-                <Link href="/profile">Profile</Link> {/* Assuming /profile route exists */}
+              <Button variant="secondary" asChild size="sm">
+                <Link href="/profile">Profile</Link> 
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" asChild>
+              <Button variant="ghost" asChild size="sm">
                 <Link href="/auth/forgot-password">Request Reset</Link>
               </Button>
-              <Button variant="ghost" asChild>
+              <Button variant="ghost" asChild size="sm">
                 <Link href="/auth/login">Login</Link>
               </Button>
-              <Button variant="default" asChild>
+              <Button variant="default" asChild size="sm">
                 <Link href="/auth/register">Sign Up</Link>
               </Button>
             </>
@@ -311,235 +138,112 @@ export function HomepageHeader() {
 }
 ```
 
-## II. Data Fetching with TanStack Query (React Query)
+## II. Global Client-Side State (Zustand)
 
-TanStack Query excels at managing server state: fetching, caching, and updating data. It's in your `package.json` (`@tanstack/react-query`).
+The role of Zustand (`src/stores/auth.store.ts`) is now focused on **minimal, purely client-side global state that is NOT directly tied to auth session or server-fetched profile data.**
 
-**Goal:** Securely fetch and display data in a dashboard component, respecting user authentication.
+*   **Examples**:
+    *   UI preferences (e.g., theme: light/dark/system).
+    *   Global application toggles (e.g., "is sidebar open by default", "show advanced features").
+    *   State for transient UI elements not managed by URL or local component state.
+*   **Why not for core auth?** The combination of React Context (`AuthSessionProvider`) for the raw session and TanStack Query for profile data (composed by `useAuth`) provides a more specialized and robust solution for async server state and session lifecycle management, aligning with React's newer patterns and the capabilities of these libraries.
+*   **Structure**: If you use Zustand for other global state, consider organizing it into "slices" for maintainability, similar to the `GlobalSettingsState` example provided in `src/stores/auth.store.ts`.
 
-### 1. Setting up `QueryClientProvider`
-
-Wrap your application with `QueryClientProvider`.
-
-**Create `src/components/providers/query-provider.tsx`:**
-```tsx
-// src/components/providers/query-provider.tsx
-'use client';
-
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Optional
-import React from 'react';
-
-export function QueryProvider({ children }: { children: React.ReactNode }) {
-  // Create a new QueryClient instance for each session (on the client)
-  // to avoid sharing data between users if prefetching on the server.
-  const [queryClient] = React.useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 1000 * 60 * 5, // 5 minutes
-        refetchOnWindowFocus: false,
-      },
-    },
-  }));
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-      {/* ReactQueryDevtools is recommended for development */}
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  );
-}
-```
-
-**Update `src/app/layout.tsx` to include `QueryProvider`:**
-```tsx
-// src/app/layout.tsx (simplified)
-import { AuthStateProvider } from '@/components/providers/auth-state-provider';
-import { QueryProvider } from '@/components/providers/query-provider'; // New
-// ... other imports
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode; }>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <PHProvider>
-        <QueryProvider> {/* TanStack Query Provider (can wrap AuthStateProvider or be sibling) */}
-          <AuthStateProvider>
-            <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-              <DynamicPostHogPageview />
-              {children}
-              <Toaster />
-            </body>
-          </AuthStateProvider>
-        </QueryProvider>
-      </PHProvider>
-    </html>
-  );
-}
-```
-
-### 2. Creating a Data Fetching Function (Server Action for Query)
-
-Fetch data securely on the server using a Server Action. Place this in a `queries` subdirectory of the relevant feature. This pattern involves a Server Action that internally calls a service function.
-
-**Example: `src/features/dashboard/services/dashboard.service.ts`**
 ```typescript
-// src/features/dashboard/services/dashboard.service.ts
-'use server';
+// Example structure in src/stores/auth.store.ts (now a misnomer, should be global.store.ts or similar)
+import { create } from 'zustand';
 
-import { createClient } from '@/lib/supabase/server';
-
-export interface DashboardItem {
-  id: string;
-  name: string;
-  user_id: string;
-  // ... other properties
+interface GlobalSettingsState {
+  theme: 'light' | 'dark' | 'system';
+  actions: {
+    setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  };
 }
 
-export async function fetchDashboardItemsForUser(userId: string): Promise<DashboardItem[]> {
-  const supabase = await createClient();
-
-  // IMPORTANT: This assumes you have a 'dashboard_items' table in Supabase
-  // with RLS policies ensuring users can only see their own data (e.g., `auth.uid() = user_id`).
-  const { data, error } = await supabase
-    .from('dashboard_items') // Replace with your actual table name
-    .select('*')
-    .eq('user_id', userId); // Filter by the authenticated user's ID
-
-  if (error) {
-    console.error('Error fetching dashboard data from service:', error);
-    throw new Error(`Service failed to fetch dashboard data: ${error.message}`);
-  }
-  return data || [];
-}
+export const useGlobalSettingsStore = create<GlobalSettingsState>((set) => ({
+  theme: 'system',
+  actions: {
+    setTheme: (theme) => set({ theme }),
+  },
+}));
 ```
 
-**Example: `src/features/dashboard/queries/dashboard.queries.ts`** (This is the Server Action used by TanStack Query)
-```typescript
-// src/features/dashboard/queries/dashboard.queries.ts
-'use server';
+## III. Data Fetching for Other Features (TanStack Query)
 
-import { createClient } from '@/lib/supabase/server'; // Server-side Supabase client
-import { fetchDashboardItemsForUser, type DashboardItem } from '@/features/dashboard/services'; // Import service
+When building new features that require data from the server (e.g., a dashboard, list of items):
 
-export async function getDashboardData(): Promise<DashboardItem[]> {
-  const supabase = await createClient();
+1.  **Service Function (`src/features/[your-feature]/services/[your-feature].service.ts`):**
+    *   Marked with `'use server';`.
+    *   Contains direct Supabase (or other API) calls using the server client (`@/lib/supabase/server`).
+    *   Handles data retrieval and basic transformation. Returns data and error.
+    *   Example: `fetchDashboardItemsForUser(userId: string)` from `docs/adding-new-features.md`.
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    // It's often better to return empty/default data or let TanStack Query handle the disabled state
-    // rather than throwing an error that might be hard to catch gracefully in the UI.
-    return [];
-  }
+2.  **Server Action (Query Function - `src/features/[your-feature]/queries/[your-feature].queries.ts`):**
+    *   Marked with `'use server';`.
+    *   Called by TanStack Query's `queryFn` on the client.
+    *   Authenticates the user if necessary (`await supabase.auth.getUser()`).
+    *   Calls the appropriate service function.
+    *   Can perform additional server-side logic or data validation.
+    *   Throws an error if data fetching fails, which `useQuery` will catch.
+    *   Example: `getDashboardData()` from `docs/adding-new-features.md`.
 
-  try {
-    // The Server Action calls the service function
-    return await fetchDashboardItemsForUser(user.id);
-  } catch (error) {
-    console.error('Error in getDashboardData query action:', error);
-    // Re-throw or handle as appropriate for TanStack Query
-    throw error;
-  }
-}
-```
-Remember to create `src/features/dashboard/services/index.ts` and `src/features/dashboard/queries/index.ts` to export these functions if you follow the barrel file pattern.
+3.  **Custom Hook with `useQuery` (`src/features/[your-feature]/hooks/use-[your-data]-query.ts`):**
+    *   Client-side hook (`'use client'`).
+    *   Uses `useQuery` from TanStack Query.
+    *   `queryKey`: Unique key for the query, often including dynamic parts like `userId`.
+    *   `queryFn`: The Server Action created in the step above.
+    *   `enabled`: Conditional logic (e.g., only fetch if user is authenticated).
+    *   Configures `staleTime`, `gcTime`, etc., as needed.
 
-### 3. Using `useQuery` in a Dashboard Component
+4.  **UI Component (`src/features/[your-feature]/components/[your-component].tsx`):**
+    *   Uses the custom hook to get data, loading states, and error states.
+    *   Renders UI based on these states (loading indicators, error messages, actual data).
 
-**Example: `src/features/dashboard/components/dashboard-display.tsx`**
+**Example: `DashboardDisplay` (Conceptual, from `docs/adding-new-features.md`)**
 ```tsx
-// src/features/dashboard/components/dashboard-display.tsx
+// src/features/dashboard/components/dashboard-display.tsx (Conceptual)
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardData, type DashboardItem } from '@/features/dashboard/queries'; // Adjust path
-import { useAuth } from '@/stores/auth.store'; // To check authentication status
-import { Skeleton, Card, CardHeader, CardTitle, CardContent } from '@/components/ui'; // Example UI components
+import { getDashboardData } from '@/features/dashboard/queries'; // Server Action
+import { useAuth } from '@/features/auth/hooks'; // To check auth status
+import { Skeleton, Card /* ... */ } from '@/components/ui';
+// import type { DashboardItem } from '@/features/dashboard/services'; // Type for dashboard items
 
 export function DashboardDisplay() {
-  const { user, isAuthenticated, isLoading: authIsLoading } = useAuth();
+  const { user, isAuthenticated, isSessionLoading } = useAuth(); // isSessionLoading is for initial session check
 
-  // `useQuery` fetches data using the `getDashboardData` Server Action.
   const {
     data: dashboardItems,
     isLoading: dataIsLoading,
     isError,
     error,
-    isFetching, // Useful for showing loading indicators on refetches
-  } = useQuery<DashboardItem[], Error>({
-    queryKey: ['dashboardData', user?.id], // Unique key for this query. Include user ID.
+  } = useQuery<any[], Error>({ // Replace 'any[]' with your DashboardItem[] type
+    queryKey: ['dashboardData', user?.id],
     queryFn: getDashboardData,
-    // Only enable the query if the user is authenticated and initial auth check is done.
-    enabled: isAuthenticated && !authIsLoading && !!user?.id,
-    // Other options like refetchInterval, onSuccess, onError can be configured here.
+    enabled: isAuthenticated && !isSessionLoading && !!user?.id, // Enable after session check and if authenticated
   });
 
-  if (authIsLoading) {
-    return <p>Authenticating...</p>; // Or a global loading spinner
-  }
-
-  if (!isAuthenticated) {
-    return <p>Please log in to view your dashboard.</p>; // Or redirect to login
-  }
-
-  if (dataIsLoading) {
-    return (
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Dashboard Items</h2>
-        <Skeleton className="h-8 w-full mb-2" />
-        <Skeleton className="h-8 w-full mb-2" />
-        <Skeleton className="h-8 w-2/2" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return <p className="text-destructive">Error loading dashboard: {error?.message || 'Unknown error'}</p>;
-  }
+  if (isSessionLoading) return <p>Authenticating...</p>;
+  if (!isAuthenticated) return <p>Please log in.</p>;
+  if (dataIsLoading) return <Skeleton className="h-20 w-full" />;
+  if (isError) return <p>Error: {error?.message}</p>;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          Your Dashboard Items
-          {isFetching && <Skeleton className="h-5 w-5 rounded-full animate-ping" />}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {dashboardItems && dashboardItems.length > 0 ? (
-          <ul className="space-y-2">
-            {dashboardItems.map((item) => (
-              <li key={item.id} className="p-3 border rounded-md shadow-sm hover:bg-muted/50">
-                {item.name}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No items to display on your dashboard yet.</p>
-        )}
-      </CardContent>
+    <Card>
+      {/* Render dashboardItems */}
     </Card>
   );
 }
 ```
-You would then create a page like `src/app/dashboard/page.tsx` to render this `DashboardDisplay` component, potentially wrapping it in a layout that checks for authentication (handled by middleware in this template).
-
-### Key Considerations:
-
-*   **Row Level Security (RLS):** This is **critical**. Ensure your Supabase tables (`profiles`, `dashboard_items`, etc.) have RLS policies enabled so users can only access/modify their own data. Server Actions and Service functions using the authenticated Supabase client (via `src/lib/supabase/server.ts`) will respect these policies.
-*   **Supabase Client Instances**:
-    *   Zustand store (client-side): Use `createClient()` from `@/lib/supabase/client`. This is a synchronous function.
-    *   TanStack Query `queryFn` (Server Actions, like `getDashboardData` which calls a service): The service function (`fetchDashboardItemsForUser`) will use `await createClient()` from `@/lib/supabase/server`. This is an asynchronous function.
-    *   TanStack Query `mutationFn` (if client-side, though Server Actions are preferred for mutations): Use `createClient()` from `@/lib/supabase/client`.
-*   **Invalidation and Refetching:** After mutations (e.g., adding a dashboard item via a Server Action located in `src/features/dashboard/actions/`), use `queryClient.invalidateQueries({ queryKey: ['dashboardData', userId] })` from TanStack Query to refetch data and keep the UI consistent. Make sure to include relevant parts of the `queryKey` for targeted invalidation.
-*   **Error and Loading States**: Implement robust UI feedback for loading, error, and empty states.
-*   **User Experience**: Think about how data fetching impacts UX. The `enabled` flag in `useQuery` is good. Consider placeholders, optimistic updates for mutations, etc.
 
 ## Conclusion
 
-Integrating Zustand for global auth state and TanStack Query for server state management provides a powerful and scalable architecture.
-- **Zustand (`useAuth`)** offers a reactive, global source for user authentication status and profile (including `user_metadata` and optionally data from a `profiles` table).
-- **TanStack Query** simplifies data fetching, caching, and synchronization for features like dashboards, leveraging Server Actions (which call service functions) for secure data access.
-Remember to adapt table names, profile structures, and data fetching logic to your specific application needs and always prioritize security with RLS policies in Supabase.
+This refined approach to state management and data fetching leverages the strengths of each tool:
+*   **React Context (`AuthSessionProvider`)**: For efficient, reactive propagation of the raw Supabase session.
+*   **TanStack Query**: For robust server state management, caching, and background updates, especially for user profiles and other application data.
+*   **`useAuth` Hook**: For a clean, unified API for components to access authentication state.
+*   **Zustand**: For managing other global, client-side UI state that doesn't involve server data.
 
-    
+This architecture promotes separation of concerns, maintainability, and scalability.
+

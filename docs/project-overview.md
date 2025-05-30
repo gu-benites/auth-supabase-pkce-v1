@@ -16,6 +16,8 @@ The goal is to offer a clear guide for understanding, maintaining, and extending
 - Zod (Schema Validation)
 - Lucide Icons (Icon Library)
 - TypeScript
+- TanStack Query (for server state management, e.g., user profile)
+- React Context (for raw session state)
 
 ## I. Authentication Flow Details
 
@@ -89,7 +91,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **User Interface (`src/features/auth/components/reset-password-form.tsx` - Client Component):**
     - The email field is pre-filled (from URL query parameter) and disabled, providing context for password managers.
     - User enters their New Password and confirms it.
-    - An initial check is performed to ensure a user session exists (meaning they've successfully come from the email link). If not, they are redirected to `/forgot-password`.
+    - An initial check is performed using the `useAuth` hook (`@/features/auth/hooks`) to ensure a user session exists (meaning they've successfully come from the email link). If not, they are redirected to `/forgot-password`.
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Triggers the `updateUserPassword` Server Action.
 - **Server-Side Validation (within Server Action):**
@@ -105,7 +107,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 
 - **User Interface (e.g., `src/features/homepage/components/header.tsx` - Client Component):**
     - A "Sign Out" button is present.
-    - Ideally, this button is only visible to authenticated users (requires client-side auth state, e.g., via Zustand `useAuth` hook as described in `integrating-state-and-data-fetching.md`).
+    - This button is visible to authenticated users, determined by the `useAuth` hook.
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Clicking the "Sign Out" button (which is inside a `<form>`) triggers the `signOutUserAction` Server Action.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
@@ -115,7 +117,17 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Redirection:**
     - Upon successful sign-out, the `signOutUserAction` redirects the user to the `/login` page.
 
-## II. 'use client' vs. 'use server' Explained
+## II. Client-Side Authentication State
+
+Client components access authentication status, the raw Supabase user object, and detailed user profile information primarily through the `useAuth` hook:
+- **`src/features/auth/hooks/use-auth.ts`**: This is the main hook for UI components.
+    - It consumes the raw Supabase session from `AuthSessionProvider` (React Context).
+    - It fetches the detailed user profile using `useUserProfileQuery` (TanStack Query), which calls a Server Action.
+    - It provides a composite state: `user` (raw Supabase user), `profile` (detailed `UserProfile`), `isAuthenticated`, `isLoading` (composite loading for session and profile), and `error`.
+
+For more details on this setup, refer to `docs/integrating-state-and-data-fetching.md`.
+
+## III. 'use client' vs. 'use server' Explained
 
 The Next.js App Router introduces a paradigm where components are **Server Components by default**. Directives like `'use client'` and `'use server'` are used to specify component rendering environments and define server-side functions (Server Actions).
 
@@ -132,11 +144,13 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 - **Location:** Placed at the very top of a `.tsx` or `.js` file.
 - **Characteristics:**
     - Rendered on the server for the initial HTML, then "hydrated" on the client to become interactive.
-    - **Can use React Hooks** (`useState`, `useEffect`, `useActionState`, `useRouter`, etc.).
+    - **Can use React Hooks** (`useState`, `useEffect`, `useActionState`, `useRouter`, `useContext`, custom hooks like `useAuth`).
     - **Can use browser APIs** and handle user events.
 - **In this project:**
-    - All form components in `src/features/auth/components/` (e.g., `login-form.tsx`) use `'use client'` because they require state management for inputs, form submission status (`useActionState`), side effects (`useEffect` for toasts), and client-side navigation.
-    - Provider components like `src/components/providers/posthog-provider.tsx`.
+    - All form components in `src/features/auth/components/` (e.g., `login-form.tsx`).
+    - The `HomepageHeader` in `src/features/homepage/components/`.
+    - Provider components like `src/providers/auth-session-provider.tsx`, `src/providers/posthog-provider.tsx`, and `src/providers/query-client-provider.tsx`.
+    - The `useAuth` hook in `src/features/auth/hooks/use-auth.ts`.
 
 ### `'use server'` Directive
 - **Purpose:** Marks functions exported from a file as **Server Actions** or indicates that a file exports Server Actions. These functions are guaranteed to execute only on the server.
@@ -146,10 +160,10 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - Can securely access server-side resources: databases (Supabase), internal APIs, environment variables.
     - Ideal for data mutations, form handling, and any operation requiring secure server-side execution.
 - **In this project:**
-    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, `signOutUserAction`, etc.). Each of these functions handles form data, calls services, and returns a state object. This file is marked with `'use server';`.
-    - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. While not directly called from the client, this file is also marked with `'use server';` as it's part of the server-side execution boundary initiated by Server Actions and uses the server Supabase client.
-    - `src/features/auth/queries/auth.queries.ts`: Placeholder for future auth-related data-fetching Server Actions. Marked with `'use server';`.
-    - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
+    - `src/features/auth/actions/auth.actions.ts`: Contains all authentication-related Server Actions (`signUpNewUser`, `signInWithPassword`, `signOutUserAction`, etc.).
+    - `src/features/auth/services/auth.service.ts`: Contains functions that directly interact with Supabase. Marked with `'use server';` as it's part of the server-side execution boundary.
+    - `src/features/profile/queries/profile.queries.ts`: Contains Server Actions for fetching profile data (used by TanStack Query).
+    - **Important Note:** Files containing Zod schemas (`src/features/auth/schemas/*.ts`, `src/features/profile/schemas/*.ts`) **do not** use `'use server';` as they export objects/data structures, not async functions intended as server actions.
 
 ### Route Handlers (`route.ts`)
 - **Purpose:** Define API endpoints or server-side logic for specific URL paths (e.g., handling GET, POST requests).
@@ -161,15 +175,13 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - `src/app/(auth)/auth/confirm/route.ts`: Handles the GET request for email confirmation links.
 
 ### Role of Middleware (`src/middleware.ts`)
-- The `src/middleware.ts` file is crucial for Supabase session management and route protection. It runs on the server before a request is processed for matching paths.
-- It calls `updateSession` from `src/features/auth/utils/middleware.utils.ts`.
-- The `updateSession` utility:
-    - Initializes the Supabase server client with cookies from the request.
-    - Calls `supabase.auth.getUser()` to refresh the user's session token if it's expired and update the cookies in the response. It also gets the current user.
-    - Implements route protection by redirecting unauthenticated users from non-public paths to `/login`.
+- The `src/middleware.ts` file, delegating to `src/features/auth/utils/middleware.utils.ts`, is crucial for Supabase session management and route protection. It runs on the server before a request is processed.
+- It initializes the Supabase server client with cookies from the request.
+- Calls `supabase.auth.getUser()` to refresh the user's session token and get the current user.
+- Implements route protection by redirecting unauthenticated users from non-public paths to `/login`.
 - This ensures that Server Components, Route Handlers, and Server Actions have access to an up-to-date user session.
 
-## III. Project Structure Highlights
+## IV. Project Structure Highlights
 
 The project follows a feature-based organization within the `src` directory.
 
@@ -189,28 +201,39 @@ The project follows a feature-based organization within the `src` directory.
             - `auth.actions.ts`
         - `services/`: Contains direct Supabase interaction logic.
             - `auth.service.ts`
-        - `queries/`: (Placeholder) Server Actions for auth data fetching.
+        - `queries/`: Server Actions for auth-related data fetching.
             - `auth.queries.ts`
         - `schemas/`: Zod validation schemas.
-        - `hooks/`: (Placeholder) Custom React hooks specific to authentication.
+        - `hooks/`: Custom React hooks specific to authentication.
+            - `use-auth.ts`
         - `utils/`: Utility functions specific to auth features.
             - `middleware.utils.ts`
+    - **`profile/`**: Feature for user profile data.
+        - `hooks/`: Custom hooks like `use-user-profile-query.ts`.
+        - `queries/`: Server Actions for fetching profile data (`profile.queries.ts`).
+        - `schemas/`: Zod schemas for profile data (`profile.schema.ts`).
+        - `services/`: Services for profile data interaction (`profile.service.ts`).
     - **`homepage/`**: Components related to the main homepage.
         - `components/`
 - **`/src/components/`**:
     - `ui/`: Reusable ShadCN UI components.
     - `icons/`: Custom SVG icon components.
-    - `providers/`: Global React context providers.
     - `analytics/`: Analytics-related components.
+- **`/src/providers/`**: Global React context providers.
+    - `auth-session-provider.tsx`
+    - `posthog-provider.tsx`
+    - `query-client-provider.tsx` (actually named `query-client-provider.tsx`)
 - **`/src/lib/`**:
     - `supabase/`: Supabase client initialization (`client.ts` for browser, `server.ts` for server-side).
     - `utils.ts`: General utility functions.
 - **`/src/hooks/`**:
     - General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
+- **`/src/stores/`**:
+    - `auth.store.ts`: Zustand store, now for minimal, non-auth related global client-side state.
 - **`/src/middleware.ts`**:
     - Next.js middleware entry point.
 
-## IV. Adapting for Other Projects (Checklist)
+## V. Adapting for Other Projects (Checklist)
 
 1.  **Supabase Configuration:**
     - [ ] Ensure your new project has `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
@@ -218,27 +241,24 @@ The project follows a feature-based organization within the `src` directory.
     - [ ] Customize `src/app/globals.css` (ShadCN theme) or replace UI components.
     - [ ] Update `PassForgeLogo` or branding elements.
 3.  **Redirection URLs:**
-    - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts` (passed to services).
+    - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts`.
     - [ ] Adjust the `next` query parameter logic in `src/app/(auth)/auth/confirm/route.ts` if post-confirmation redirect paths differ.
     - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action, post-signout redirect in `signOutUserAction`).
     - [ ] Review public paths in `src/features/auth/utils/middleware.utils.ts` for route protection.
 4.  **Error Handling Pages:**
     - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth/auth-code-error/page.tsx`).
 5.  **Protected Routes Strategy:**
-    - [ ] The `src/features/auth/utils/middleware.utils.ts` already implements a basic route protection strategy. Adjust the `publicPaths` array as needed (e.g., homepage `/`, auth pages, any truly public marketing pages).
-6.  **Additional User Metadata:**
-    - [ ] If collecting more data at registration:
-        - Add fields to `src/features/auth/components/register-form.tsx`.
-        - Update Zod schemas in `src/features/auth/schemas/register.schema.ts`.
-        - Modify `signUpNewUser` Server Action in `src/features/auth/actions/auth.actions.ts` to pass data to the `signUpWithSupabase` service, which includes it in `options.data` (which becomes `user_metadata`).
+    - [ ] The `src/features/auth/utils/middleware.utils.ts` already implements a basic route protection strategy. Adjust the `publicPaths` array as needed.
+6.  **User Metadata & Profiles Table:**
+    - [ ] If collecting more data at registration, update schemas in `src/features/auth/schemas/register.schema.ts` and the `signUpNewUser` action.
+    - [ ] If using the `profiles` table, ensure it's created in Supabase with correct columns and RLS policies. Adapt `src/features/profile/services/profile.service.ts` and `src/features/profile/schemas/profile.schema.ts` if your table structure differs from the documented example.
 7.  **Database Schema (RLS):**
-    - [ ] Configure Row Level Security (RLS) policies in your Supabase database, especially if you add tables for user profiles or other user-specific data.
+    - [ ] Configure Row Level Security (RLS) policies in your Supabase database, especially for the `profiles` table and any other user-specific data tables.
 8.  **Review Site URL:**
     - [ ] Ensure that the `origin` header, used to construct `emailRedirectTo` URLs in server actions, correctly reflects your deployed site's URL. For local development, it's usually fine. For production, ensure your hosting provider correctly sets the `Host` or `Origin` header, or consider using an environment variable for the site URL.
 
 ## Conclusion
 
-This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
-The accompanying `integrating-state-and-data-fetching.md` guide provides next steps for managing user state globally and fetching user-specific data.
+This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
+The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy.
 
-    
