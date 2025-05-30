@@ -48,7 +48,8 @@ export function HomepageHeader(): JSX.Element {
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <PassForgeLogo className="h-8 w-8 text-primary group-hover:text-accent transition-colors" />
-          <span className="text-xl font-semibold text-foreground group-hover:text-accent transition-colors">
+          {/* Changed text-primary to text-foreground and group-hover:text-accent to group-hover:text-primary for more standard text behavior */}
+          <span className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors">
             PassForge
           </span>
         </Link>

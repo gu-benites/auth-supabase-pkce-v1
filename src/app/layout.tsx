@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import './globals.css';
+import '../styles/globals.css'; // Updated import path
 import { Toaster } from "@/components/ui";
-import { AuthSessionProvider, QueryClientProvider } from '@/providers';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Import devtools
+import { AuthSessionProvider, QueryClientProvider, ThemeProvider } from '@/providers';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 /**
  * Root layout component for the PassForge application.
- * It sets up global fonts, providers, and the basic HTML structure.
+ * It sets up global fonts, providers (including ThemeProvider), and the basic HTML structure.
  *
  * @param {object} props - The properties for the component.
  * @param {React.ReactNode} props.children - The child components to be rendered within this layout.
@@ -39,15 +39,22 @@ export default function RootLayout({
 }>): JSX.Element {
   return (
     <html lang="en" suppressHydrationWarning>
-      <QueryClientProvider>
-        <AuthSessionProvider>
-          <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-            {children}
-            <Toaster />
-            {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
-          </body>
-        </AuthSessionProvider>
-      </QueryClientProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <QueryClientProvider>
+          <AuthSessionProvider>
+            <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+              {children}
+              <Toaster />
+              {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+            </body>
+          </AuthSessionProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </html>
   );
 }
