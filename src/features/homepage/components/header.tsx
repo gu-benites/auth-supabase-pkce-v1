@@ -4,36 +4,44 @@
 import Link from 'next/link';
 import { PassForgeLogo } from '@/components/icons';
 import { Loader2 } from 'lucide-react';
-import { Button, Skeleton } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { signOutUserAction } from '@/features/auth/actions';
-import { useAuth } from '@/features/auth/hooks'; // Updated import to the new useAuth hook
+import { useAuth } from '@/features/auth/hooks'; 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserCircle2 } from 'lucide-react';
+
 
 /**
  * Renders the header for the homepage.
  * Displays PassForge logo, application name, and navigation links.
  * Navigation links change based on the user's authentication status (loading, authenticated, unauthenticated),
- * now using the refactored useAuth hook.
+ * using the `useAuth` hook which combines session and profile state.
  *
  * @returns {JSX.Element} The homepage header component.
  */
 export function HomepageHeader(): JSX.Element {
-  // Use the new useAuth hook from @/features/auth/hooks
-  // This hook combines session data from AuthSessionContext and profile data from TanStack Query.
   const { user, profile, isAuthenticated, isLoading } = useAuth();
 
-  // Determine display name: profile.firstName (from detailed profile)
-  // -> user.user_metadata.first_name (fallback from raw user)
-  // -> user.email prefix (another fallback)
   const getDisplayName = () => {
     if (profile?.firstName) return profile.firstName;
-    // Assuming user_metadata might store first_name (adjust if your metadata structure is different)
-    // @ts-ignore
+    // @ts-ignore - user_metadata is a dynamic object
     if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
     if (user?.email) return user.email.split('@')[0];
     return 'User';
   };
 
-  const displayName = getDisplayName();
+  const getInitials = () => {
+    const firstName = profile?.firstName || user?.user_metadata?.first_name;
+    // @ts-ignore - user_metadata is a dynamic object
+    const lastName = profile?.lastName || user?.user_metadata?.last_name;
+    const firstInitial = firstName?.[0] || '';
+    const lastInitial = lastName?.[0] || '';
+    const initials = `${firstInitial}${lastInitial}`.toUpperCase();
+    return initials || <UserCircle2 size={18} />; // Return icon if no initials
+  };
+  
+  const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url;
+
 
   return (
     <header className="py-4 px-6 md:px-8 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
@@ -46,35 +54,35 @@ export function HomepageHeader(): JSX.Element {
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
           {isLoading ? (
-            // Show a spinner while loading session or profile
-            <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-          ) : isAuthenticated && user ? ( // Check for user object as well
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : isAuthenticated && user ? (
             <>
               <span className="text-sm text-foreground hidden sm:inline">
-                Hi, {displayName}
+                Hi, {getDisplayName()}
               </span>
-              {/* Placeholder for profile avatar if available from the detailed profile */}
-              {/* {profile?.avatarUrl && (
-                <img src={profile.avatarUrl} alt="User avatar" className="h-8 w-8 rounded-full" />
-              )} */}
+              <Avatar className="h-8 w-8 text-sm">
+                <AvatarImage src={avatarUrl} alt={getDisplayName()} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
               <form action={signOutUserAction} className="inline-flex">
-                <Button variant="ghost" type="submit">Sign Out</Button>
+                <Button variant="ghost" type="submit" size="sm">Sign Out</Button>
               </form>
-              <Button variant="secondary" asChild>
-                {/* TODO: Link to a user profile page once created, e.g., /profile or /dashboard */}
+              <Button variant="secondary" asChild size="sm">
                 <Link href="/profile">Profile</Link> 
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" asChild>
-                <Link href="/forgot-password">Request Reset</Link>
+              <Button variant="ghost" asChild size="sm">
+                <Link href="/auth/forgot-password">Request Reset</Link>
               </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/login">Login</Link>
+              <Button variant="ghost" asChild size="sm">
+                <Link href="/auth/login">Login</Link>
               </Button>
-              <Button variant="default" asChild>
-                <Link href="/register">Sign Up</Link>
+              <Button variant="default" asChild size="sm">
+                <Link href="/auth/register">Sign Up</Link>
               </Button>
             </>
           )}
