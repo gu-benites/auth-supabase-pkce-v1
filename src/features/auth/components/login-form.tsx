@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
 import { signInWithPassword } from "@/features/auth/actions";
@@ -32,11 +31,11 @@ function SubmitButton() {
  * Uses a Server Action (`signInWithPassword`) to handle authentication.
  * Displays success or error messages using toasts and handles redirection on success.
  * Includes a password visibility toggle.
+ * This component is intended to be rendered within a layout that handles overall page structure.
  *
  * @returns {JSX.Element} The login form component.
  */
 export default function LoginForm(): JSX.Element {
-  const router = useRouter();
   const { toast } = useToast();
   const initialState = { message: null, success: false, errorFields: null };
   const [state, formAction] = useActionState(signInWithPassword, initialState);
@@ -45,11 +44,12 @@ export default function LoginForm(): JSX.Element {
   useEffect(() => {
     if (state?.message) {
       if (state.success) {
+        // Successful login is handled by redirect in the server action.
+        // Toast might not be visible if redirect is too fast.
         toast({
           title: "Success!",
-          description: state.message, // Though on success, redirect happens quickly.
+          description: state.message,
         });
-        // Redirect to the homepage (root) after successful login is handled by the action.
       } else {
         toast({
           title: "Login Failed",
@@ -58,11 +58,12 @@ export default function LoginForm(): JSX.Element {
         });
       }
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-      <Card className="w-full max-w-md shadow-xl">
+    // Removed min-h-screen and centering, layout is handled by /app/(auth)/layout.tsx
+    <div className="w-full animate-fade-in">
+      <Card className="w-full shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <PassForgeLogo className="h-12 w-12 text-primary" />
@@ -144,6 +145,6 @@ export default function LoginForm(): JSX.Element {
       <footer className="mt-8 text-center text-sm text-muted-foreground">
         &copy; {new Date().getFullYear()} PassForge. All rights reserved.
       </footer>
-    </main>
+    </div>
   );
 }

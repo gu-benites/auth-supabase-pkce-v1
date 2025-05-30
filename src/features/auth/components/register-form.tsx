@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Input, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
 import { signUpNewUser } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { UserPlus, Mail, KeyRound, Loader2, Eye, EyeOff, User } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -33,6 +33,7 @@ function SubmitButton() {
  * Displays success or error messages using toasts.
  * Includes password visibility toggles for password and confirm password fields.
  * On successful sign-up initiation, displays a message prompting email confirmation.
+ * This component is intended to be rendered within a layout that handles overall page structure.
  *
  * @returns {JSX.Element} The registration form component.
  */
@@ -64,8 +65,8 @@ export function RegisterForm(): JSX.Element {
 
   if (state?.success) {
     return (
-     <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-       <Card className="w-full max-w-md shadow-xl">
+     <div className="w-full animate-fade-in">
+       <Card className="w-full shadow-xl">
          <CardHeader className="text-center">
            <div className="flex justify-center mb-4">
              <PassForgeLogo className="h-12 w-12 text-primary" />
@@ -82,13 +83,13 @@ export function RegisterForm(): JSX.Element {
         <footer className="mt-8 text-center text-sm text-muted-foreground">
          &copy; {new Date().getFullYear()} PassForge. All rights reserved.
        </footer>
-     </main>
+     </div>
     )
  }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-      <Card className="w-full max-w-md shadow-xl">
+    <div className="w-full animate-fade-in">
+      <Card className="w-full shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <PassForgeLogo className="h-12 w-12 text-primary" />
@@ -240,6 +241,6 @@ export function RegisterForm(): JSX.Element {
       <footer className="mt-8 text-center text-sm text-muted-foreground">
         &copy; {new Date().getFullYear()} PassForge. All rights reserved.
       </footer>
-    </main>
+    </div>
   );
 }

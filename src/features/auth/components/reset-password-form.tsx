@@ -1,3 +1,4 @@
+
 // src/features/auth/components/reset-password-form.tsx
 "use client";
 
@@ -34,6 +35,7 @@ function SubmitButton() {
  * Displays success or error messages using toasts.
  * Includes password visibility toggles.
  * Relies on `useAuth` for session validation before rendering the form.
+ * This component is intended to be rendered within a layout that handles overall page structure.
  *
  * @returns {JSX.Element} The reset password form component.
  */
@@ -48,12 +50,11 @@ export default function ResetPasswordForm(): JSX.Element {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Use session-specific loading and error from useAuth
   const { user, isSessionLoading, sessionError } = useAuth();
 
   useEffect(() => {
-    if (!isSessionLoading) { // Wait for session check to complete
-      if (!user || sessionError) { // Check if no user from session or if there's a session error
+    if (!isSessionLoading) {
+      if (!user || sessionError) {
         toast({
           title: "Authentication Error",
           description: sessionError?.message || "Your session is invalid or has expired. Please try the password reset process again.",
@@ -84,20 +85,17 @@ export default function ResetPasswordForm(): JSX.Element {
 
   if (isSessionLoading) {
     return (
-      <main className="flex flex-col items-center justify-center min-h-screen p-4">
+      <div className="flex flex-col items-center justify-center py-12"> {/* Adjusted for potential layout */}
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Verifying session...</p>
-      </main>
+      </div>
     );
   }
 
-  // If still here after loading and not redirected, means user session is valid
-  // (user object exists and no sessionError)
-
   if (state?.success) {
      return (
-      <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-        <Card className="w-full max-w-md shadow-xl">
+      <div className="w-full animate-fade-in">
+        <Card className="w-full shadow-xl">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <PassForgeLogo className="h-12 w-12 text-primary" />
@@ -114,24 +112,22 @@ export default function ResetPasswordForm(): JSX.Element {
          <footer className="mt-8 text-center text-sm text-muted-foreground">
           &copy; {new Date().getFullYear()} PassForge. All rights reserved.
         </footer>
-      </main>
+      </div>
      )
   }
 
-  // Render form only if session is valid (user exists and no sessionError) and action not yet successful
   if (!user || sessionError) {
-     // This case should ideally be handled by the useEffect redirect, but as a fallback.
      return (
-        <main className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="flex flex-col items-center justify-center py-12"> {/* Adjusted for potential layout */}
             <p className="text-muted-foreground">Redirecting...</p>
-        </main>
+        </div>
     );
   }
 
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-      <Card className="w-full max-w-md shadow-xl">
+    <div className="w-full animate-fade-in">
+      <Card className="w-full shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <PassForgeLogo className="h-12 w-12 text-primary" />
@@ -234,6 +230,6 @@ export default function ResetPasswordForm(): JSX.Element {
        <footer className="mt-8 text-center text-sm text-muted-foreground">
         &copy; {new Date().getFullYear()} PassForge. All rights reserved.
       </footer>
-    </main>
+    </div>
   );
 }

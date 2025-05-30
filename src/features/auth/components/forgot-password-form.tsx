@@ -31,6 +31,7 @@ function SubmitButton() {
  * Allows users to enter their email address to request a password reset link.
  * Uses a Server Action (`requestPasswordReset`) to handle the submission.
  * Displays success or error messages using toasts.
+ * This component is intended to be rendered within a layout that handles overall page structure.
  *
  * @returns {JSX.Element} The forgot password form component.
  */
@@ -57,8 +58,9 @@ export default function ForgotPasswordForm(): JSX.Element {
   }, [state, toast]);
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-      <Card className="w-full max-w-md shadow-xl">
+    // Removed min-h-screen and centering, layout is handled by /app/(auth)/layout.tsx
+    <div className="w-full animate-fade-in">
+      <Card className="w-full shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <PassForgeLogo className="h-12 w-12 text-primary" />
@@ -93,6 +95,6 @@ export default function ForgotPasswordForm(): JSX.Element {
       <footer className="mt-8 text-center text-sm text-muted-foreground">
         &copy; {new Date().getFullYear()} PassForge. All rights reserved.
       </footer>
-    </main>
+    </div>
   );
 }
