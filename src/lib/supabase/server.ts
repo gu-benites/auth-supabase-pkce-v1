@@ -4,8 +4,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function createClient() {
-  const cookieStore = cookies(); // Corrected: cookies() is not async
+export async function createClient() { // This is the server client, note: async function
+  const cookieStore = cookies(); // Corrected: cookies() is synchronous
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,17 +26,10 @@ export async function createClient() {
             // user sessions.
           }
         },
-        // Added remove method for completeness and consistency
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options, path: '/' });
-          } catch {
-            // The `remove` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        }
+        // The 'remove' method was not in the original code for this file,
+        // so it's removed to match the user's working version.
       },
     }
   )
 }
+

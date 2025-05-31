@@ -59,7 +59,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
 ### 2. `/src/lib/supabase/server.ts`
 
 *   **Purpose:** To create a Supabase client instance intended for use on the **server (Server Components, Route Handlers, Server Actions, Service files)**. This client is crucial for managing authentication sessions via cookies.
-*   **Code:**
+*   **Code (Reflecting Project's Current State):**
     ```typescript
     // src/lib/supabase/server.ts
     "use server"; // Ensures this module and its functions are server-only
@@ -68,7 +68,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
     import { cookies } from 'next/headers';
 
     export async function createClient() { // This is the server client, note: async function
-      const cookieStore = cookies(); // Access cookies using Next.js's server-only 'cookies()'
+      const cookieStore = cookies(); // Correctly uses the synchronous cookies() function
 
       return createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -88,14 +88,9 @@ This document provides a comprehensive guide to understanding how Supabase clien
                 // This can be ignored if you have middleware refreshing user sessions.
               }
             },
-            remove(name: string, options: CookieOptions) { // Added remove method
-              try {
-                cookieStore.set(name, '', { ...options, path: '/' });
-              } catch {
-                // The `remove` method was called from a Server Component.
-                // This can be ignored if you have middleware refreshing user sessions.
-              }
-            }
+            // Note: The 'remove' method is not implemented in this specific file
+            // in the current project setup, but it is implemented in the
+            // middleware's Supabase client initialization.
           },
         }
       );
@@ -104,9 +99,9 @@ This document provides a comprehensive guide to understanding how Supabase clien
 *   **Explanation:**
     *   **`"use server";`**: This directive at the top of the file is critical. It marks the entire module as server-only.
     *   Uses `createServerClient` from `@supabase/ssr`.
-    *   **`async function createClient()`**: The function is `async` because it uses `cookies()` which is recommended to be used in an async context on the server to ensure proper cookie store access. Therefore, any code calling this `createClient` function **must `await` it**.
+    *   **`async function createClient()`**: The function is `async` because `createServerClient` itself can be used with async cookie stores, and it's a common pattern to keep it async even if the immediate `cookies()` call is sync. This ensures flexibility if the cookie handling were to become async. Callers **must `await` it**.
     *   **`const cookieStore = cookies();`**: Correctly uses the synchronous `cookies()` function from `next/headers` to get the cookie store instance.
-    *   **Cookie Management:** The `cookies` option passed to `createServerClient` is vital. It tells the Supabase client how to read (`getAll`), write (`setAll`), and remove (`remove`) cookies using Next.js's server-side cookie store. This wrapper is intended for Server Components, Server Actions, and Route Handlers.
+    *   **Cookie Management:** The `cookies` option passed to `createServerClient` is vital. It tells the Supabase client how to read (`getAll`) and write (`setAll`) cookies using Next.js's server-side cookie store.
 *   **When to Use:**
     *   **Server Actions (e.g., in `src/features/auth/actions/auth.actions.ts`):** These actions often call service functions.
     *   **Service Files (e.g., `src/features/auth/services/auth.service.ts`):**
@@ -150,7 +145,7 @@ This document provides a comprehensive guide to understanding how Supabase clien
     *   `src/middleware.ts`: A lean entry point that calls `updateSession` from `src/features/auth/utils/middleware.utils.ts`.
     *   `src/features/auth/utils/middleware.utils.ts`: Contains the `updateSession` function which:
         *   **Instantiates its own Supabase server client directly using `createServerClient` from `@supabase/ssr`**. This is crucial because middleware needs to bind cookie operations to the specific `NextRequest` and `NextResponse` objects it handles within its scope. It does *not* use the wrapper from `/src/lib/supabase/server.ts`.
-        *   The cookie handling logic within `updateSession` (for `getAll`, `setAll`, `remove`) is tailored to the middleware's access to `request.cookies` and `response.cookies`.
+        *   The cookie handling logic within `updateSession` (for `getAll`, `setAll`, `remove`) is tailored to the middleware's access to `request.cookies` and `response.cookies`. This handler includes a `remove` method.
         *   **`await supabase.auth.getUser()`**: This is the most critical line for auth. It attempts to get the current session and user. If the access token is expired but a valid refresh token exists, Supabase will automatically refresh the session and update the cookies. The `setAll` function within the `cookies` config ensures these new session cookies are attached to the `response`.
         *   Implements route protection: Redirects unauthenticated users to `/login` if they try to access non-public paths.
 *   This setup ensures that subsequent Server Components, Route Handlers, Server Actions, or Service calls in the same request lifecycle receive the most up-to-date session information and user object.
