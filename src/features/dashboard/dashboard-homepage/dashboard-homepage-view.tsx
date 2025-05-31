@@ -14,12 +14,11 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { BarChart, CheckCircle, LineChart, Users, Loader2, UserCircle2 } from 'lucide-react';
+import { BarChart, CheckCircle, LineChart, Users } from 'lucide-react'; // Removed Loader2, UserCircle2
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/features/auth/hooks';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+// import { useAuth } from '@/features/auth/hooks'; // Removed useAuth
+// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Avatar removed for now
 
-// LoadingCard can remain or be extracted if it grows
 function LoadingCard() {
   return (
     <Card>
@@ -34,88 +33,34 @@ function LoadingCard() {
   );
 }
 
-// Helper to get initials for Avatar Fallback
-const getInitialsHelper = (firstName?: string | null, lastName?: string | null, email?: string | null) => {
-  const first = firstName?.[0] || '';
-  const last = lastName?.[0] || '';
-  const initials = `${first}${last}`.toUpperCase();
-  if (initials) return initials;
-  if (email) return email[0].toUpperCase();
-  return <UserCircle2 size={24} />; // Fallback icon if no name/email
-};
+export function DashboardHomepageView() {
+  // Static welcome message
+  const displayName = "User";
 
-
-export function DashboardHomepageView() { // Renamed from DashboardHomePage
-  const {
-    user,
-    profile,
-    isAuthenticated,
-    isLoadingAuth,
-    isSessionLoading,
-    sessionError,
-    profileError,
-  } = useAuth();
-
-  const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url as string | undefined;
-  const displayName = profile?.firstName || user?.user_metadata?.first_name as string || user?.email?.split('@')[0] || 'User';
-  const userInitials = getInitialsHelper(profile?.firstName, profile?.lastName, user?.email);
-
-
-  if (isSessionLoading || isLoadingAuth) {
-    return (
-      <div className="flex flex-col gap-6 animate-pulse">
-        <Skeleton className="h-8 w-3/4 mb-4" /> {/* For welcome message */}
-        <Skeleton className="h-10 w-1/2 mb-6" /> {/* For tabs list */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => <LoadingCard key={i} />)}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Skeleton className="lg:col-span-4 h-80" />
-          <Skeleton className="lg:col-span-3 h-80" />
-        </div>
-      </div>
-    );
-  }
-
-  if (sessionError || profileError) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-destructive">Error Loading Dashboard Data</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>{sessionError?.message || profileError?.message || 'An unknown error occurred.'}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!isAuthenticated) {
-    // This should ideally be caught by page-level redirect or middleware,
-    // but good as a fallback.
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Not Authenticated</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Please log in to view your dashboard.</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Simulate loading state for design purposes if needed, or remove entirely
+  // const isLoading = false;
+  // if (isLoading) {
+  //   return (
+  //     <div className="flex flex-col gap-6 animate-pulse">
+  //       <Skeleton className="h-8 w-3/4 mb-4" />
+  //       <Skeleton className="h-10 w-1/2 mb-6" />
+  //       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+  //         {[...Array(4)].map((_, i) => <LoadingCard key={i} />)}
+  //       </div>
+  //       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+  //         <Skeleton className="lg:col-span-4 h-80" />
+  //         <Skeleton className="lg:col-span-3 h-80" />
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3 mb-4">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={avatarUrl} alt={displayName} />
-          <AvatarFallback className="bg-primary text-primary-foreground">
-            {userInitials}
-          </AvatarFallback>
-        </Avatar>
+        {/* Avatar removed for now */}
         <div>
-          <h2 className="text-2xl font-semibold text-foreground">Welcome back, {displayName}!</h2>
+          <h2 className="text-2xl font-semibold text-foreground">Welcome to your dashboard!</h2>
           <p className="text-muted-foreground">
             Here's what's happening with your account today.
           </p>
@@ -300,5 +245,3 @@ export function DashboardHomepageView() { // Renamed from DashboardHomePage
     </div>
   );
 }
-
-    

@@ -1,17 +1,17 @@
+
 "use client";
 
 import { useSelectedLayoutSegment } from "next/navigation";
-import { Menu, MoreHorizontal, UserCircle2, Loader2 } from "lucide-react";
+import { Menu, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Avatar removed for now
+// import { Skeleton } from "@/components/ui/skeleton"; // Skeleton for auth loading removed
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/features/auth/hooks";
+// import { useAuth } from "@/features/auth/hooks"; // Removed useAuth
 
 const getPageTitle = (segment: string | null): string => {
   if (!segment) return "Dashboard";
-  // Convert kebab-case to Title Case
   return segment
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -20,32 +20,12 @@ const getPageTitle = (segment: string | null): string => {
 
 interface DashboardHeaderProps {
   onToggleMobileSidebar: () => void;
-  isMobileSidebarOpen: boolean; // To manage aria-expanded or similar if needed
+  isMobileSidebarOpen: boolean;
 }
 
 export function DashboardHeader({ onToggleMobileSidebar }: DashboardHeaderProps) {
   const segment = useSelectedLayoutSegment();
   const pageTitle = getPageTitle(segment);
-
-  const { user, profile, isLoadingAuth, isSessionLoading } = useAuth();
-
-  const getDisplayName = () => {
-    if (profile?.firstName) return profile.firstName;
-    const userMetaFirstName = user?.user_metadata?.first_name as string | undefined;
-    if (userMetaFirstName) return userMetaFirstName;
-    if (user?.email) return user.email.split("@")[0];
-    return "User";
-  };
-
-  const getInitials = () => {
-    const firstName = profile?.firstName || (user?.user_metadata?.first_name as string | undefined);
-    const lastName = profile?.lastName || (user?.user_metadata?.last_name as string | undefined);
-    const firstInitial = firstName?.[0] || "";
-    const lastInitial = lastName?.[0] || "";
-    const initials = `${firstInitial}${lastInitial}`.toUpperCase();
-    return initials || <UserCircle2 size={18} />;
-  };
-  const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
 
   return (
     <header className="flex h-14 items-center justify-between border-b px-4 md:px-6 sticky top-0 bg-background/95 backdrop-blur-sm z-10">
@@ -68,16 +48,7 @@ export function DashboardHeader({ onToggleMobileSidebar }: DashboardHeaderProps)
       </div>
       <div className="flex items-center gap-3">
         <ThemeToggle />
-        {isSessionLoading || isLoadingAuth ? (
-          <Skeleton className="h-8 w-8 rounded-full" />
-        ) : user ? (
-          <Avatar className="h-8 w-8 text-sm">
-            <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
-            <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
-        ) : null}
+        {/* User Avatar display removed for now */}
         <Button
           variant="ghost"
           size="icon"
