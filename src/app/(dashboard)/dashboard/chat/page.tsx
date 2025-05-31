@@ -1,11 +1,12 @@
-import { ChatPage } from '@/features/chat/components';
 
-export default function DashboardChatPage() {
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-hidden">
-        <ChatPage />
-      </div>
-    </div>
-  );
+import { ChatView } from '@/features/dashboard/chat'; // Updated import
+
+/**
+ * Renders the main chat page within the dashboard.
+ * This page component uses the ChatView component, which encapsulates the chat interface.
+ *
+ * @returns {JSX.Element} The dashboard chat page component.
+ */
+export default function DashboardChatPage(): JSX.Element {
+  return <ChatView />;
 }

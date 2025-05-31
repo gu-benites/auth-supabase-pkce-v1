@@ -3,11 +3,11 @@
 
 This guide focuses on structuring your dashboard's shared layout, nested routes like chat, and the organization of your `/src/features/dashboard` directory.
 
-**NOTE:** Items marked with `[MOVED]` or `[EXTRACTED]` indicate changes made during refactoring. Original paths might be obsolete.
+**NOTE:** Items marked with `[MOVED]` or `[EXTRACTED]` or `[CREATED]` indicate changes made during refactoring. Original paths might be obsolete or their content significantly altered.
 
 ## Core Principles:
 
-*   **`/src/app/`**: Handles routing, route groups, and applies layouts.
+*   `/src/app/`**: Handles routing, route groups, and applies layouts.
 *   **`/src/features/`**: Contains the actual UI components, logic, services, and types for distinct application features.
     
 *   **Naming Conventions**:
@@ -64,9 +64,12 @@ This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
     }
     ```
 
-*   **Feature Component Location (Target for Phase 2)**: `/src/features/dashboard/dashboard-homepage/` **[PHASE 2 FOCUS]**
+*   **Feature Component Location**: `/src/features/dashboard/dashboard-homepage/` **[PHASE 2 COMPLETE]**
     *   Main view component file: `dashboard-homepage-view.tsx` (exports `DashboardHomepageView`) **[CREATED IN PHASE 2]**
-*   **Old Location (Before Phase 2)**: `src/features/dashboard/components/dashboard-homepage/dashboard-homepage.tsx` `[MOVED to /features/dashboard/dashboard-homepage/dashboard-homepage-view.tsx in PHASE 2]`
+    *   Barrel file: `index.ts` (exports `DashboardHomepageView`) **[CREATED IN PHASE 2]**
+*   **Old Location (Obsolete after Phase 2)**:
+    * `src/features/dashboard/components/dashboard-homepage/dashboard-homepage.tsx` `[MOVED to /features/dashboard/dashboard-homepage/dashboard-homepage-view.tsx in PHASE 2]`
+    * `src/features/dashboard/components/dashboard-homepage/index.ts` `[CONTENT MOVED / OBSOLETED in PHASE 2]`
 
 #### B. Chat Page (Nested under Dashboard)
 *   **URL**: `/dashboard/chat`
@@ -74,16 +77,17 @@ This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
 
     ```
     // /src/app/(dashboard)/dashboard/chat/page.tsx
-    import { ChatView } from '@/features/dashboard/chat'; // Path might change after Phase 3
+    import { ChatView } from '@/features/dashboard/chat'; // Path changed in PHASE 3
     
     export default function DashboardChatPage() {
       return <ChatView />;
     }
     ```
 
-*   **Feature Component Location (Target for Phase 3)**: `/src/features/dashboard/chat/`
-    *   Main view component file: `chat-view.tsx` (exports `ChatView`)
-*   **Current Main Chat Component**: `src/features/chat/components/chat-page.tsx` (The new `ChatView` will likely wrap this).
+*   **Feature Component Location**: `/src/features/dashboard/chat/` **[PHASE 3 COMPLETE]**
+    *   Main view component file: `chat-view.tsx` (exports `ChatView`) **[CREATED IN PHASE 3]**
+    *   Barrel file: `index.ts` (exports `ChatView`) **[CREATED IN PHASE 3]**
+*   **Current Main Chat Component (Wrapped by ChatView)**: `src/features/chat/components/chat-page.tsx` (This remains the core chat logic provider).
 
 ## 3\. Feature Structure: `/src/features/dashboard/`
 This directory groups all code related to the dashboard's functionality and views.
@@ -99,26 +103,26 @@ This directory groups all code related to the dashboard's functionality and view
 ├── components/                 # Main orchestrating components or legacy components before full refactor
 │   └── dashboard-layout.tsx    # Main layout component, now uses items from /layout/
 │   └── dashboard-homepage/     # [MOVED/RESTRUCTURED in Phase 2 to /features/dashboard/dashboard-homepage/]
-│   │   └── dashboard-homepage.tsx # [MOVED in PHASE 2]
-│   │   └── index.ts            # [UPDATED in PHASE 2]
+│   │   └── dashboard-homepage.tsx # [MOVED/OBSOLETED in PHASE 2]
+│   │   └── index.ts            # [CONTENT MOVED/OBSOLETED in PHASE 2]
 │   └── index.ts                # Barrel file for components like DashboardLayout [UPDATED in PHASE 2]
 │
 ├── dashboard-homepage/         # [CREATED/POPULATED IN PHASE 2] Feature for the main /dashboard page content
 │   ├── components/             # UI sub-components specific to dashboard-homepage
-│   │   ├── stats-card.tsx
-│   │   └── recent-activity.tsx
-│   ├── hooks/                  # Custom hooks for this feature (e.g., useFetchDashboardData.ts)
+│   │   ├── stats-card.tsx      # (Example, not yet implemented)
+│   │   └── recent-activity.tsx # (Example, not yet implemented)
+│   ├── hooks/                  # Custom hooks for this feature (e.g., useFetchDashboardData.ts) (Example, not yet implemented)
 │   ├── dashboard-homepage-view.tsx # Main view component (exports DashboardHomepageView) [CREATED IN PHASE 2]
 │   └── index.ts                # Barrel file for this feature [CREATED IN PHASE 2]
 │
-├── chat/                       # [TARGET for Phase 3] Feature for the /dashboard/chat page content *within dashboard context*
-│   ├── components/             # UI sub-components specific to dashboard's chat view (if any)
-│   ├── hooks/                  # Custom hooks for dashboard's chat view (if any)
-│   ├── chat-view.tsx           # Main view component (exports ChatView, likely wraps actual chat logic from /src/features/chat)
-│   └── index.ts                # (Optional)
+├── chat/                       # [CREATED/POPULATED IN PHASE 3] Feature for the /dashboard/chat page content *within dashboard context*
+│   ├── components/             # UI sub-components specific to dashboard's chat view (if any) (Example, not yet implemented)
+│   ├── hooks/                  # Custom hooks for dashboard's chat view (if any) (Example, not yet implemented)
+│   ├── chat-view.tsx           # Main view component (exports ChatView, wraps actual chat logic from /src/features/chat) [CREATED IN PHASE 3]
+│   └── index.ts                # Barrel file for this feature [CREATED IN PHASE 3]
 │
 │
-├── settings/                   # Example: Feature for /dashboard/settings
+├── settings/                   # Example: Feature for /dashboard/settings (Not yet implemented)
 │   ├── components/
 │   ├── settings-view.tsx
 │   └── index.ts
