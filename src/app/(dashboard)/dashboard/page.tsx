@@ -1,9 +1,11 @@
 
-import { DashboardHomePage } from '@/features/dashboard/components/dashboard-homepage';
+// src/app/(dashboard)/dashboard/page.tsx
+
+import { DashboardHomepageView } from '@/features/dashboard/dashboard-homepage'; // Updated import
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { getCurrentUserProfile } from '@/features/user-profile/queries'; // Updated import path
+import { getCurrentUserProfile } from '@/features/user-profile/queries/profile.queries';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server'; // For server-side auth check
+import { createClient } from '@/lib/supabase/server'; 
 
 /**
  * Server Component for the main dashboard page (/dashboard).
@@ -13,7 +15,7 @@ import { createClient } from '@/lib/supabase/server'; // For server-side auth ch
  * - Checks for an authenticated user. Redirects to /login if none.
  * - Initializes a TanStack Query client.
  * - Prefetches the user's profile data.
- * - Renders the DashboardHomePage component wrapped in a HydrationBoundary
+ * - Renders the DashboardHomepageView component wrapped in a HydrationBoundary
  *   to pass the prefetched data to the client-side query cache.
  *
  * @returns {Promise<JSX.Element>} The dashboard page component.
@@ -23,30 +25,25 @@ export default async function DashboardPage(): Promise<JSX.Element> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    // This should ideally be caught by middleware, but good to have a fallback.
     redirect('/login?message=Please log in to view your dashboard.');
   }
 
   const queryClient = new QueryClient();
 
   try {
-    // Prefetch the user's profile data
-    // The queryKey must match the one used in useUserProfileQuery
     await queryClient.prefetchQuery({
       queryKey: ['userProfile', user.id], 
       queryFn: getCurrentUserProfile,
     });
   } catch (error) {
     console.error("Failed to prefetch user profile for dashboard:", error);
-    // Optionally, handle this error, e.g., by not dehydrating or
-    // by setting up a way for the client component to show a specific error state.
-    // For now, we'll proceed and let the client-side useQuery handle its own error state.
   }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <DashboardHomePage />
+      <DashboardHomepageView /> {/* Updated component name */}
     </HydrationBoundary>
   );
 }
 
+    

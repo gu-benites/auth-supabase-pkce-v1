@@ -1,3 +1,4 @@
+
 # Next.js Dashboard & Features: Guidelines Cheat Sheet
 
 This guide focuses on structuring your dashboard's shared layout, nested routes like chat, and the organization of your `/src/features/dashboard` directory.
@@ -33,19 +34,19 @@ This guide focuses on structuring your dashboard's shared layout, nested routes 
       );
     }
     ```
-*   **Actual `DashboardLayout` Orchestrator**: `src/features/dashboard/components/dashboard-layout.tsx` (This component is now leaner and uses the new layout parts)
+*   **Actual `DashboardLayout` Orchestrator**: `src/features/dashboard/components/dashboard-layout.tsx` (This component is now leaner and uses the new layout parts) **[PHASE 1 COMPLETE]**
 
 *   **Shared UI Components (Sidebar, Header, User Menu)**:
     
-    *   **Location**: `/src/features/dashboard/layout/`
+    *   **Location**: `/src/features/dashboard/layout/` **[PHASE 1 COMPLETE]**
     *   **Files**:
-        *   `dashboard-sidebar.tsx` (exports `DashboardSidebar` component) **[NEW/REFACTORED]**
-        *   `dashboard-header.tsx` (exports `DashboardHeader` component) **[NEW/EXTRACTED]**
-        *   `user-menu.tsx` (exports `UserMenu` component, used within `DashboardSidebar`) **[NEW/EXTRACTED]**
-        *   `index.ts` (Barrel file: `export * from './dashboard-sidebar'; export * from './dashboard-header'; export * from './user-menu';`) **[NEW]**
+        *   `dashboard-sidebar.tsx` (exports `DashboardSidebar` component) **[CREATED IN PHASE 1]**
+        *   `dashboard-header.tsx` (exports `DashboardHeader` component) **[CREATED IN PHASE 1]**
+        *   `user-menu.tsx` (exports `UserMenu` component, used within `DashboardSidebar`) **[CREATED IN PHASE 1]**
+        *   `index.ts` (Barrel file: `export * from './dashboard-sidebar'; export * from './dashboard-header'; export * from './user-menu';`) **[CREATED IN PHASE 1]**
 *   **Old Locations (Obsolete after Phase 1):**
-    * `src/features/dashboard/components/sidebar.tsx` `[MOVED to /layout/dashboard-sidebar.tsx]`
-    * Header logic was inside `src/features/dashboard/components/dashboard-layout.tsx` `[EXTRACTED to /layout/dashboard-header.tsx]`
+    * `src/features/dashboard/components/sidebar.tsx` `[MOVED to /layout/dashboard-sidebar.tsx in PHASE 1]`
+    * Header logic was inside `src/features/dashboard/components/dashboard-layout.tsx` `[EXTRACTED to /layout/dashboard-header.tsx in PHASE 1]`
 
 ## 2\. Dashboard Pages (Example: Main & Chat)
 This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
@@ -56,16 +57,16 @@ This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
     
     ```
     // /src/app/(dashboard)/dashboard/page.tsx
-    import { DashboardHomepageView } from '@/features/dashboard/dashboard-homepage'; // Path might change after Phase 2
+    import { DashboardHomepageView } from '@/features/dashboard/dashboard-homepage'; // Path changed in PHASE 2
     
     export default function DashboardPage() {
       return <DashboardHomepageView />;
     }
     ```
 
-*   **Feature Component Location (Target for Phase 2)**: `/src/features/dashboard/dashboard-homepage/`
-    *   Main view component file: `dashboard-homepage-view.tsx` (exports `DashboardHomepageView`)
-*   **Current Location (Before Phase 2)**: `src/features/dashboard/components/dashboard-homepage/dashboard-homepage.tsx`
+*   **Feature Component Location (Target for Phase 2)**: `/src/features/dashboard/dashboard-homepage/` **[PHASE 2 FOCUS]**
+    *   Main view component file: `dashboard-homepage-view.tsx` (exports `DashboardHomepageView`) **[CREATED IN PHASE 2]**
+*   **Old Location (Before Phase 2)**: `src/features/dashboard/components/dashboard-homepage/dashboard-homepage.tsx` `[MOVED to /features/dashboard/dashboard-homepage/dashboard-homepage-view.tsx in PHASE 2]`
 
 #### B. Chat Page (Nested under Dashboard)
 *   **URL**: `/dashboard/chat`
@@ -97,18 +98,18 @@ This directory groups all code related to the dashboard's functionality and view
 │
 ├── components/                 # Main orchestrating components or legacy components before full refactor
 │   └── dashboard-layout.tsx    # Main layout component, now uses items from /layout/
-│   └── dashboard-homepage/     # [TO BE MOVED/RESTRUCTURED in Phase 2 to /features/dashboard/dashboard-homepage/]
-│   │   └── dashboard-homepage.tsx # Current main content for /dashboard
-│   │   └── index.ts
-│   └── index.ts                # Barrel file for components like DashboardLayout
+│   └── dashboard-homepage/     # [MOVED/RESTRUCTURED in Phase 2 to /features/dashboard/dashboard-homepage/]
+│   │   └── dashboard-homepage.tsx # [MOVED in PHASE 2]
+│   │   └── index.ts            # [UPDATED in PHASE 2]
+│   └── index.ts                # Barrel file for components like DashboardLayout [UPDATED in PHASE 2]
 │
-├── dashboard-homepage/         # [TARGET for Phase 2] Feature for the main /dashboard page content
+├── dashboard-homepage/         # [CREATED/POPULATED IN PHASE 2] Feature for the main /dashboard page content
 │   ├── components/             # UI sub-components specific to dashboard-homepage
 │   │   ├── stats-card.tsx
 │   │   └── recent-activity.tsx
 │   ├── hooks/                  # Custom hooks for this feature (e.g., useFetchDashboardData.ts)
-│   ├── dashboard-homepage-view.tsx # Main view component (exports DashboardHomepageView)
-│   └── index.ts                # (Optional)
+│   ├── dashboard-homepage-view.tsx # Main view component (exports DashboardHomepageView) [CREATED IN PHASE 2]
+│   └── index.ts                # Barrel file for this feature [CREATED IN PHASE 2]
 │
 ├── chat/                       # [TARGET for Phase 3] Feature for the /dashboard/chat page content *within dashboard context*
 │   ├── components/             # UI sub-components specific to dashboard's chat view (if any)
@@ -132,3 +133,5 @@ This directory groups all code related to the dashboard's functionality and view
 *   **`hooks/`**: Custom React hooks specific to the feature's logic.
 *   **`services/` or `actions/`**: (Optional) For API calls or business logic functions (e.g., `FetchChatMessages.ts`, `UpdateSettingsAction.ts`). Remember your `PascalCase` convention for functions/actions.
 *   **`types/` or `[feature-name].types.ts`**: TypeScript type definitions specific to the feature.
+
+    
