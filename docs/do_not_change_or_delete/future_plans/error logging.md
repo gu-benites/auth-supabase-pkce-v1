@@ -1,40 +1,45 @@
-Here are the specifics about the logging system proposed by Bedrock, covering both client-side and server-side aspects:
-The Bedrock architecture incorporates a logging system designed for both server-side and client-side operations, with centralized configuration and integration with external observability platforms like Sentry.
 
-Server-Side Logging:
+The Bedrock architecture incorporates a logging system designed for both server-side and client-side operations, with centralized configuration and integration with Sentry for comprehensive error monitoring and observability.
 
-Tool: The server-side uses Winston for structured logging.
+## Server-Side Logging:
 
-Configuration: The configuration for Winston resides in src/lib/logger/winston.config.ts. This centralizes logging setup.
+*   **Tool**: Winston is used for structured logging on the server.
+*   **Configuration**: Winston configuration resides in `src/lib/logger/winston.config.ts`. This file sets up log formats (JSON for production, human-readable for development) and transports.
+*   **Sentry Integration for Winston**: The Winston configuration includes a `SentryWinstonTransport`. This transport automatically sends logs of level `warn` and `error` (along with their context and stack traces if available) from Winston directly to your Sentry project. This requires `SENTRY_DSN` to be set and the Sentry Node.js SDK to be initialized (which is handled by `src/instrumentation.ts` importing `sentry.server.config.ts`).
+*   **Usage**:
+    *   To obtain a logger instance on the server, use the factory function `getServerLogger(moduleName: string)` provided by `src/lib/logger/index.ts`. This allows for module-specific tagging of logs.
+    *   `getServerLogger` instances are used within services (e.g., `src/features/auth/services/auth.service.ts`), Server Actions (e.g., `src/features/auth/actions/auth.actions.ts`), and API Route Handlers.
+    *   Services should log key operations, parameters (masking PII), and particularly errors with context before throwing them or returning an error state.
+*   **Error Handling Flow**:
+    1.  Services use `getServerLogger().error('Descriptive message', { errorObject, additionalContext });`
+    2.  The Server Action or API Route handler calling the service catches the error. It might log it again with higher-level request context if needed, or simply allow the error to propagate if it's an unhandled exception (which Sentry will also capture).
+    3.  The `createApiRouteHandler` (if used for API routes) standardizes error responses. Server Actions typically return state objects indicating success/failure.
+*   **Testing**: `getServerLogger` should be mocked during unit tests for services or actions to isolate the logic being tested from actual log output or Sentry transport.
 
-Usage: To get a logger instance on the server, you use a factory function called getServerLogger(moduleName: string) which is provided by src/lib/logger/index.ts. This function allows you to obtain logger instances specific to the module you are working in.
+## Client-Side Logging & Error Monitoring:
 
-Where Used: getServerLogger instances are used within services, API routes, and Server Actions.
+*   **Primary Tool: Sentry Client SDK (`@sentry/nextjs`)**:
+    *   **Initialization**: Sentry's client-side SDK is initialized in `src/instrumentation-client.ts`. This file is automatically loaded by Next.js in the browser. It configures the `NEXT_PUBLIC_SENTRY_DSN`.
+    *   **Automatic Error Capture**: Sentry automatically captures:
+        *   Unhandled JavaScript exceptions.
+        *   Unhandled promise rejections.
+        *   Errors reported by `src/app/global-error.tsx` (for App Router global UI errors).
+    *   **Manual Error Capture**: For more specific error reporting or capturing caught errors with additional context:
+        *   Use `Sentry.captureException(error, { extra: { ...context } });` for caught JavaScript Error objects.
+        *   Use `Sentry.captureMessage("Descriptive message about an issue", "warning" | "error" | "info", { extra: { ...context } });` for logging significant events or non-critical issues.
+    *   **Usage Examples**:
+        *   `src/providers/auth-session-provider.tsx`: Captures errors related to `onAuthStateChange` subscription or `INITIAL_SESSION` events that include an error.
+        *   `src/features/auth/hooks/use-auth.ts`: Captures `sessionError` from `AuthSessionProvider` and `profileError` from `useUserProfileQuery`.
+        *   Authentication Form Components (e.g., `src/features/auth/components/login-form.tsx`): Capture unexpected server action failure messages.
+*   **Secondary Client-Side Logging (Optional Pattern - `/api/logs/client`)**:
+    *   The original proposal mentioned a pattern where very specific, non-critical client-side logs could be sent to a dedicated Next.js API route (e.g., `/api/logs/client`). This route would then use the server-side Winston logger (`getServerLogger`) to record these client-originated logs.
+    *   **Current Status**: This specific API endpoint and custom client logger are **not implemented** as part of the core Sentry/Winston setup. Direct Sentry client-side capture (`Sentry.captureException`, `Sentry.captureMessage`) is the primary mechanism for client-side error and significant event reporting to Sentry.
+    *   If this pattern is desired for specific, high-volume, or non-error client logs that shouldn't go to Sentry directly, it can be implemented separately. The API endpoint would need security measures like rate limiting.
 
-Services use getServerLogger('ServiceName') to log operations, parameters (being mindful to mask PII), and errors. Examples show its use in user-profile.service.ts and order.service.ts.
+## Observability Platform: Sentry
 
-Server Actions and API route handlers can also use getServerLogger.
+*   Sentry serves as the central platform for collecting, viewing, and managing errors and (if enabled) performance data from both server-side (via Winston transport and direct SDK capture) and client-side (via `@sentry/nextjs`).
+*   Configuration for Sentry (DSN, org, project slugs) is managed via environment variables and `next.config.ts`.
+*   Source maps are uploaded during the build process (facilitated by `withSentryConfig` in `next.config.ts` and `SENTRY_AUTH_TOKEN`) to provide de-minified stack traces in Sentry.
 
-Error Handling Integration: Services are specifically instructed to log errors with context using getServerLogger() before throwing errors on failure. The caller (such as a Server Action or an API Route handler via createApiRouteHandler) is then responsible for catching these errors and may log them again at a higher level, potentially with request context, before formatting the final client response.
-
-Observability Integration: Server-side logging is integrated with an observability platform like Sentry. Configuration for this integration will be in files like sentry.server.config.ts.
-
-Testing: getServerLogger should be mocked when writing unit tests for services to isolate the logic being tested.
-
-Client-Side Logging:
-
-Tool: The client-side uses a custom logger.
-
-Configuration/Location: This custom logger is defined in src/lib/logger/client.logger.ts. This location is for generic, core utilities.
-
-Usage: You can obtain client-side logger instances using getClientLogger('moduleName'). This logger can provide instances specific to a component or module.
-
-How it Reports: The client-side logger is designed to send critical logs (specifically errors and warnings) to a dedicated Next.js API route (e.g., /api/logs/client). It uses an authenticated utility function (presumably from src/lib/utils/api.utils.ts) to call this API route. Once the logs reach this server-side API route, they are then processed and logged using the server-side logger (Winston).
-
-API Endpoint Security: The API endpoint receiving client logs (/api/logs/client) should have appropriate security measures, such as rate limiting, implemented to prevent abuse, even if the logged content is not highly sensitive.
-
-Observability Integration: Client-side logging also integrates with an observability platform like Sentry. Sentry client-side initialization (sentry.client.config.ts) captures unhandled exceptions and performance data from the client.
-
-Example Use Case: The useAuth hook specifically uses getClientLogger('useAuth') for logging errors related to authentication on the client side.
-
-In summary, Bedrock's logging strategy involves distinct but connected systems for server and client. The server uses Winston with getServerLogger instances within services, actions, and API routes, integrating with Sentry server-side. The client uses a custom logger (getClientLogger) that sends critical logs via a secured API route to the server for processing by the server-side logger, complementing Sentry's client-side exception and performance monitoring. Centralized configuration in src/lib/logger/ and co-located testing (.test.ts files alongside source files) support this system.
+In summary, PassForge's error logging strategy combines structured server-side logging with Winston (integrated with Sentry for warnings/errors) and comprehensive client-side error monitoring directly with Sentry's Next.js SDK. This provides robust observability into application health.

@@ -20,6 +20,7 @@ Before proceeding, ensure you understand:
 *   The existing authentication flow and project structure (see `docs/project-overview.md`).
 *   How `AuthSessionProvider`, `useUserProfileQuery`, and the `useAuth` hook work together (see `docs/integrating-state-and-data-fetching.md`).
 *   The Next.js App Router, Server Components, and Client Components.
+*   The project's error logging and monitoring strategy (see `docs/do_not_change_or_delete/future_plans/error logging.md`).
 
 ## III. Step 1: Planning the User Profile Feature
 
@@ -138,6 +139,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserCircle2 } from 'lucide-react';
+import * as Sentry from '@sentry/nextjs'; // Import Sentry
 
 export function ProfileDisplay() {
   // useAuth provides the composite state:
@@ -158,6 +160,9 @@ export function ProfileDisplay() {
     sessionError, // For session specific errors
     profileError, // For profile specific errors
   } = useAuth();
+
+  // Note: The useAuth hook already logs sessionError and profileError to Sentry.
+  // Additional Sentry logging can be added here for states specific to this component if needed.
 
   if (isSessionLoading) { // Show loading while session is being determined
     return (
@@ -181,6 +186,7 @@ export function ProfileDisplay() {
   }
 
   if (sessionError) {
+    // Error is already logged by useAuth. Display UI feedback.
     return (
       <Alert variant="destructive">
         <AlertTitle>Session Error</AlertTitle>
@@ -227,6 +233,7 @@ export function ProfileDisplay() {
   }
   
   if (profileError && user) { // Check profileError if user session is valid
+    // Error is already logged by useAuth. Display UI feedback.
     return (
       <Alert variant="destructive">
         <AlertTitle>Error Loading Profile Data</AlertTitle>
@@ -238,6 +245,11 @@ export function ProfileDisplay() {
   }
 
   if (!isAuthenticated && user) { // Session is valid, but profile isn't loaded (covered by isLoadingAuth or profileError usually)
+      // This state might indicate an issue if not covered by profileError. Log it.
+      Sentry.captureMessage('ProfileDisplay: User authenticated but profile data is missing without a profileError.', {
+        level: 'warning',
+        extra: { userId: user.id, profile, isLoadingAuth, isProfileLoading: profileError } // Corrected isProfileLoading to profileError context
+      });
       return (
           <Card className="w-full max-w-lg mx-auto">
               <CardHeader>
@@ -252,7 +264,11 @@ export function ProfileDisplay() {
   }
 
   if (!profile) { // Fallback if none of the above caught it (should be rare with new useAuth logic)
-    return <p>Profile data not found.</p>;
+    Sentry.captureMessage('ProfileDisplay: Profile is unexpectedly null/undefined after loading checks.', {
+      level: 'error',
+      extra: { userId: user?.id, isAuthenticated, isLoadingAuth },
+    });
+    return <p>Profile data not found. An unexpected issue occurred.</p>;
   }
 
 
@@ -360,11 +376,15 @@ import { useAuth } from '@/features/auth/hooks';
 export function HeroHeader() {
   const { user, isSessionLoading } = useAuth(); // Get auth state
 
+  // Determine if basic session exists (user object is present and session check is complete)
+  const currentIsAuthenticated = !isSessionLoading && !!user;
+
+
   return (
     <header /* ... */ >
       <nav /* ... */ >
         {/* ... other nav items ... */}
-        {!isSessionLoading && !!user && ( // Show if session is loaded and user exists
+        {!isSessionLoading && currentIsAuthenticated && ( // Show if session is loaded and user exists
             <Button variant="secondary" asChild size="sm">
                 <Link href="/profile">Profile</Link>
             </Button>
@@ -388,5 +408,55 @@ You've now outlined how to add a "User Profile" page that integrates with the es
 *   **File Uploads for Avatar:** Implement avatar uploads (e.g., to Supabase Storage) and update the profile.
 *   **Testing:** Write tests for your components, actions, and services.
 
-This guide provides a template for extending the application with new features in a structured and maintainable way.
+## IX. Error Handling and Logging Considerations for New Features
 
+When developing new features, adhere to the project's established error handling and logging strategy. This ensures consistency and aids in debugging and monitoring.
+
+**A. Server-Side (Services, Server Actions, API Routes):**
+
+1.  **Structured Logging with Winston:**
+    *   Obtain a logger instance using `getServerLogger('MyNewFeatureService')` or `getServerLogger('MyNewFeatureAction')` from `src/lib/logger`.
+    *   Log important operational steps, especially entry/exit points of functions, and critical parameters. **Always mask or exclude Personally Identifiable Information (PII)** from general logs.
+        ```typescript
+        // In src/features/my-new-feature/services/my-feature.service.ts
+        // const logger = getServerLogger('MyNewFeatureService');
+        // logger.info('Processing new item creation.', { category: itemData.category }); // Log non-sensitive parts
+        ```
+    *   When errors occur, log them with as much context as possible before throwing the error or returning an error state. Include the error object itself.
+        ```typescript
+        // logger.error('Failed to create item in database.', { error, itemId: itemData.id });
+        ```
+2.  **Sentry Integration:**
+    *   Remember that Winston logs at `warn` and `error` levels are automatically sent to Sentry. Ensure your error logs are descriptive.
+    *   For unhandled exceptions in Server Actions or API routes, Sentry will also capture them automatically.
+
+**B. Client-Side (Components, Hooks):**
+
+1.  **Sentry for Error Reporting:**
+    *   **Unhandled Exceptions:** Sentry's client-side SDK (`@sentry/nextjs`), initialized in `src/instrumentation-client.ts`, automatically captures unhandled JavaScript errors.
+    *   **Manual Error Capture:** For caught errors that are significant or indicate a problem, manually send them to Sentry:
+        ```typescript
+        // import * as Sentry from '@sentry/nextjs';
+        try {
+          // Some operation that might fail
+        } catch (error) {
+          Sentry.captureException(error, { extra: { component: 'MyNewFeatureComponent', context: 'specific_operation_failed' } });
+          // Display user-friendly error message
+        }
+        ```
+    *   **Manual Message Capture:** For important events or warnings that aren't full exceptions but indicate a potential issue:
+        ```typescript
+        // Sentry.captureMessage('User encountered an unexpected UI state in MyNewFeature.', 'warning', {
+        //   extra: { userId: user?.id, featureState }
+        // });
+        ```
+    *   Refer to how `useAuth`, `AuthSessionProvider`, and the authentication form components use Sentry for examples of manual capture.
+2.  **User Feedback:**
+    *   Always provide clear, user-friendly feedback for errors (e.g., using toasts or inline messages). Avoid exposing raw error details to the user.
+
+**C. General Guidance:**
+
+*   Consult the main error logging documentation at `docs/do_not_change_or_delete/future_plans/error logging.md` for the complete strategy and more detailed explanations.
+*   Be mindful of PII: do not log sensitive user data unless absolutely necessary and properly secured/anonymized, especially in logs that might go to third-party services like Sentry.
+
+This guide provides a template for extending the application with new features in a structured and maintainable way, including robust error handling and logging.

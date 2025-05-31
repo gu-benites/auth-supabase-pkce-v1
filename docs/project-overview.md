@@ -18,6 +18,8 @@ The goal is to offer a clear guide for understanding, maintaining, and extending
 - TypeScript
 - TanStack Query (for server state management, e.g., user profile)
 - React Context (for raw session state via `AuthSessionProvider`)
+- Winston (for server-side structured logging)
+- Sentry (for error monitoring and observability)
 
 ## I. Authentication Flow Details
 
@@ -201,7 +203,7 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 The project follows a feature-based organization within the `src` directory.
 
 - **`/src/app/`**:
-    - Global files (`layout.tsx`, `page.tsx` for homepage).
+    - Global files (`layout.tsx`, `page.tsx` for homepage, `global-error.tsx` for App Router errors).
     - **`(auth)/`**: Route group for authentication pages and related server logic.
         - `layout.tsx`: Shared two-column layout for auth pages.
         - `auth/confirm/route.ts`: Server-side handler for OTP verification.
@@ -240,14 +242,17 @@ The project follows a feature-based organization within the `src` directory.
 - **`/src/lib/`**:
     *   `supabase/`: Supabase client initialization (`client.ts` for browser, `server.ts` for server-side).
     *   `utils.ts`: General utility functions.
+    *   `logger/`: Winston logging configuration (`winston.config.ts`, `index.ts`).
 - **`/src/hooks/`**:
     *   General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
 - **`/src/stores/`**:
     *   `auth.store.ts`: Zustand store, now for minimal, non-auth related global client-side state.
 - **`/src/styles/`**:
     *   `globals.css`: Global styles and Tailwind CSS theme.
-- **`/src/middleware.ts`**:
-    *   Next.js middleware entry point.
+- **`/src/middleware.ts`**: Next.js middleware entry point.
+- **`/src/instrumentation.ts`**: Next.js file for Sentry server-side initialization.
+- **`/src/instrumentation-client.ts`**: File for Sentry client-side initialization.
+- **Root Sentry Configs**: `sentry.server.config.ts`, `sentry.edge.config.ts` at project root.
 
 ## V. Separation of Concerns: Auth vs. User Profile
 
@@ -273,32 +278,49 @@ A key architectural decision in this project is the separation of `src/features/
 
 This structure ensures that the core identity management (auth) is distinct from the management of application-specific user data attributes (user-profile), leading to a more maintainable and scalable codebase.
 
-## VI. Adapting for Other Projects (Checklist)
+## VI. Error Logging and Monitoring Strategy
+
+The application employs a robust error logging and monitoring strategy using Winston for server-side structured logging and Sentry for comprehensive error tracking across both client and server.
+
+*   **Server-Side Logging (`src/lib/logger/`):**
+    *   **Winston**: Used for detailed, structured logging in Server Actions, services, and API routes. `getServerLogger(moduleName)` provides contextualized logger instances.
+    *   **Sentry Integration**: Winston logs at `warn` and `error` levels are automatically sent to Sentry via `SentryWinstonTransport`, providing rich context for server-side issues.
+*   **Client-Side Error Monitoring:**
+    *   **Sentry (`@sentry/nextjs`)**: Initialized via `src/instrumentation-client.ts`.
+    *   Automatically captures unhandled JavaScript exceptions and promise rejections.
+    *   **Manual Capture**: Specific errors or significant events are manually captured using `Sentry.captureException(error)` or `Sentry.captureMessage("message")` in critical areas like `AuthSessionProvider`, the `useAuth` hook, and authentication form components to provide Sentry with more context.
+*   **Global Error Handling (App Router):**
+    *   `src/app/global-error.tsx` is used by Next.js to render a UI for unhandled errors in the App Router and is configured to report these errors to Sentry.
+*   **Configuration**: Sentry DSNs and other settings are managed via environment variables. Initialization is handled by `src/instrumentation.ts` (server/edge) and `src/instrumentation-client.ts` (client).
+
+For a detailed explanation of the logging and error monitoring setup, please refer to `docs/do_not_change_or_delete/future_plans/error logging.md`.
+
+## VII. Adapting for Other Projects (Checklist)
 
 1.  **Supabase Configuration:**
     - [ ] Ensure your new project has `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-2.  **Styling & UI:**
+2.  **Sentry Configuration:**
+    - [ ] Update Sentry DSN, organization, and project details in `.env.local` (`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`) and ensure `SENTRY_AUTH_TOKEN` is set for source maps.
+3.  **Styling & UI:**
     - [ ] Customize `src/styles/globals.css` (ShadCN theme) or replace UI components.
     - [ ] Update `PassForgeLogo` or branding elements.
-3.  **Redirection URLs:**
+4.  **Redirection URLs:**
     - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts`.
     - [ ] Adjust the `next` query parameter logic in `src/app/(auth)/auth/confirm/route.ts` if post-confirmation redirect paths differ.
     - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action, post-signout redirect in `signOutUserAction`).
     - [ ] Review public paths in `src/features/auth/utils/middleware.utils.ts` for route protection.
-4.  **Error Handling Pages:**
-    - [ ] **Create a user-friendly page component for `/auth/auth-code-error`** (e.g., `src/app/(auth)/auth-code-error/page.tsx`). If this page is within the `(auth)` group, it will inherit the auth layout.
-5.  **User Metadata & Profiles Table:**
+5.  **Error Handling Pages:**
+    - [ ] **Ensure a user-friendly page component exists for `/auth/auth-code-error`**.
+6.  **User Metadata & Profiles Table:**
     - [ ] If collecting different data at registration, update schemas in `src/features/auth/schemas/register.schema.ts` and the `signUpNewUser` action.
     - [ ] Ensure your `profiles` table in Supabase matches the schema in `src/features/user-profile/schemas/profile.schema.ts` and RLS policies are correctly set up.
     - [ ] Adapt `src/features/user-profile/services/profile.service.ts` if your table structure or data merging logic differs.
-6.  **Database Schema (RLS):**
+7.  **Database Schema (RLS):**
     - [ ] Configure Row Level Security (RLS) policies in your Supabase database for all user-specific data tables.
-7.  **Review Site URL:**
+8.  **Review Site URL:**
     - [ ] Ensure that the `origin` header (used in server actions for `emailRedirectTo`) or a reliable environment variable correctly reflects your deployed site's URL.
 
 ## Conclusion
 
-This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query, with Zustand available for other global client state. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
-The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy.
-
-    
+This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query, with Zustand available for other global client state. It also incorporates a comprehensive error logging and monitoring setup with Winston and Sentry. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
+The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy, and `docs/do_not_change_or_delete/future_plans/error logging.md` details the logging strategy.
