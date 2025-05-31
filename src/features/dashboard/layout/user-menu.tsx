@@ -5,22 +5,17 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ChevronDown,
-  ChevronUp,
   LogOut,
   Settings,
   Headphones,
   FileText,
   UserCircle2,
-  // Loader2, // No longer needed for auth loading here
+  ChevronsUpDown, // Added ChevronsUpDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { Skeleton } from "@/components/ui/skeleton"; // No longer needed for auth loading
-// import { useAuth } from "@/features/auth/hooks"; // Removed
-// import { signOutUserAction } from "@/features/auth/actions"; // Removed
 
 type UserMenuItem = {
   title: string;
@@ -126,7 +121,7 @@ export function UserMenu({
               </div>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent hover:text-accent-foreground">
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <ChevronsUpDown className="h-4 w-4" />
             </Button>
           </>
         )}
