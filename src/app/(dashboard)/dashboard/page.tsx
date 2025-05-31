@@ -1,7 +1,7 @@
 
 import { DashboardHomePage } from '@/features/dashboard/components/dashboard-homepage';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { getCurrentUserProfile } from '@/features/user-profile/queries/profile.queries';
+import { getCurrentUserProfile } from '@/features/user-profile/queries'; // Updated import path
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server'; // For server-side auth check
 
@@ -49,3 +49,4 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     </HydrationBoundary>
   );
 }
+
