@@ -104,6 +104,8 @@ export async function updateSession(request: NextRequest) {
     '/reset-password', // Typically needs a token, but initial access should be allowed
     '/auth/confirm', // Server-side route for OTP verification
     '/auth/auth-code-error', // Error page for OTP failures
+    '/sentry-example-page', // Sentry example page
+    '/monitoring', // Sentry tunnel route
     // Add other public marketing pages or asset paths if needed
   ];
 
