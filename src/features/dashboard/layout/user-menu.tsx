@@ -10,8 +10,10 @@ import {
   Headphones,
   FileText,
   UserCircle2,
-  ChevronsUpDown, // Added ChevronsUpDown
+  ChevronsUpDown, // For collapsed state (can expand)
+  ChevronsDownUp, // For expanded state (can collapse)
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -80,7 +82,7 @@ export function UserMenu({
 
   const toggleExpanded = () => {
     if (collapsed) {
-      onUserMenuClick?.();
+      onUserMenuClick?.(); // This might be used to expand a collapsed sidebar on mobile
       return;
     }
     setExpanded(!expanded);
@@ -91,12 +93,12 @@ export function UserMenu({
   const displayName = "Demo User";
   const email = "demo@example.com";
   const initials = "DU";
-  const avatarUrl = undefined; // Or a placeholder image URL
+  const avatarUrl = undefined; 
 
   return (
-    <div className="mt-auto border-t p-4" ref={menuRef}>
+    <div className="mt-auto border-t p-4 relative" ref={menuRef}>
       <div
-        className={cn("flex items-center gap-3 cursor-pointer", collapsed && "justify-center")}
+        className={cn("flex items-center gap-3 cursor-pointer")}
         onClick={toggleExpanded}
       >
         <div className="relative">
@@ -121,45 +123,54 @@ export function UserMenu({
               </div>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent hover:text-accent-foreground">
-              <ChevronsUpDown className="h-4 w-4" />
+              {expanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
             </Button>
           </>
         )}
       </div>
 
-      {!collapsed && expanded && (
-        <div className="mt-4 space-y-1 animate-in slide-in-from-bottom-5">
-          {userMenuItems.map((item) => (
-            <Link
-              key={item.title}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                pathname === item.href
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent hover:text-accent-foreground"
-              )}
-              onClick={() => setExpanded(false)}
-            >
-              {item.icon}
-              <span>{item.title}</span>
-            </Link>
-          ))}
-          <Separator className="my-2" />
-          {/* Placeholder for logout or link to login */}
-          <Button
-              variant="ghost"
-              asChild
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10 w-full justify-start"
-              onClick={() => setExpanded(false)}
+      <AnimatePresence>
+        {!collapsed && expanded && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10, transition: { duration: 0.15 } }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute bottom-full left-2 right-2 mb-2 z-20 bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-2"
           >
-            <Link href="/login"> 
-              <LogOut className="h-5 w-5" />
-              <span>Log out (Placeholder)</span>
-            </Link>
-          </Button>
-        </div>
-      )}
+            <div className="space-y-1">
+              {userMenuItems.map((item) => (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    pathname === item.href
+                      ? "bg-accent text-accent-foreground"
+                      : "hover:bg-accent hover:text-accent-foreground"
+                  )}
+                  onClick={() => setExpanded(false)}
+                >
+                  {item.icon}
+                  <span>{item.title}</span>
+                </Link>
+              ))}
+              <Separator className="my-2" />
+              <Button
+                variant="ghost"
+                asChild
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10 w-full justify-start"
+                onClick={() => setExpanded(false)}
+              >
+                <Link href="/login">
+                  <LogOut className="h-5 w-5" />
+                  <span>Log out (Placeholder)</span>
+                </Link>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
