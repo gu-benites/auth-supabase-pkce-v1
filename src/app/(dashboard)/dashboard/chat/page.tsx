@@ -1,5 +1,5 @@
-
-import { ChatView } from '@/features/dashboard/chat'; // Updated import
+// /src/app/(dashboard)/dashboard/chat/page.tsx
+import { ChatView } from '@/features/dashboard/chat';
 
 /**
  * Renders the main chat page within the dashboard.
@@ -8,5 +8,6 @@ import { ChatView } from '@/features/dashboard/chat'; // Updated import
  * @returns {JSX.Element} The dashboard chat page component.
  */
 export default function DashboardChatPage(): JSX.Element {
+  // The ChatView component will fill the available height within the dashboard layout.
   return <ChatView />;
 }
