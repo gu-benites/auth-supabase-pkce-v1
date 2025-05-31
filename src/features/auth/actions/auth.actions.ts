@@ -185,8 +185,8 @@ export async function signInWithPassword(prevState: AuthActionState, formData: F
     };
   }
   
-  logger.info(`Sign-in successful, redirecting user: ${data.user.id}`);
-  redirect('/');
+  logger.info(`Sign-in successful, redirecting user: ${data.user.id} to /dashboard`);
+  redirect('/dashboard');
 }
 
 /**
