@@ -27,10 +27,10 @@ const sentryWebpackPluginOptions = {
   // https://github.com/getsentry/sentry-webpack-plugin#options
 
   // Required: Your Sentry organization slug
-  org: process.env.SENTRY_ORG || "rotina-natural", // From wizard output
+  org: process.env.SENTRY_ORG, // From wizard output
 
   // Required: Your Sentry project slug
-  project: process.env.SENTRY_PROJECT || "javascript-nextjs", // From wizard output
+  project: process.env.SENTRY_PROJECT, // From wizard output
 
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
