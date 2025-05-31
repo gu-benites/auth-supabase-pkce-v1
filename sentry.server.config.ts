@@ -5,8 +5,12 @@
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  dsn: "https://3369126b9ed988a89c4b09b39cb08591@o4509414416711680.ingest.us.sentry.io/4509414501187585",
+  dsn: process.env.SENTRY_DSN,
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
+  debug: process.env.NODE_ENV === 'development' ? false : false, // Default to false, enable for debugging Sentry
+
+  // Performance Monitoring
+  // Tracing was disabled via wizard, so set tracesSampleRate to 0
+  tracesSampleRate: 0.0,
 });

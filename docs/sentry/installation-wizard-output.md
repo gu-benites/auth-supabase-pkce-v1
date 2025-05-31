@@ -81,7 +81,7 @@ Ok to proceed? (y) y
 │
 ◇  Add the Sentry authentication token as an environment variable to your CI setup:
 
-SENTRY_AUTH_TOKEN=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
+SENTRY_AUTH_TOKEN=[inserted_in_env_local_already]
 
 │
 ▲  DO NOT commit this auth token to your repository!
@@ -259,7 +259,7 @@ export default function GlobalError({ error }: { error: Error }) {
 │
 ◇  Add the Sentry authentication token as an environment variable to your CI setup:
 
-SENTRY_AUTH_TOKEN=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
+SENTRY_AUTH_TOKEN=[inserted_in_env_local_already]
 
 │
 ▲  DO NOT commit this auth token to your repository!
