@@ -98,6 +98,7 @@ export async function updateSession(request: NextRequest) {
   // Define public paths that do not require authentication
   const publicPaths = [
     '/', // Homepage
+    '/dashboard',
     '/login',
     '/register',
     '/forgot-password',
