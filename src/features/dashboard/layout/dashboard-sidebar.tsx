@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserMenu } from "./user-menu"; // Import the extracted UserMenu
+import { UserMenu } from "./user-menu";
 
 type SubMenuItem = {
   title: string;
@@ -37,9 +37,9 @@ type NavItem = {
 };
 
 interface DashboardSidebarProps {
-  onClose?: () => void;
-  collapsed?: boolean;
-  onUserMenuClick?: () => void; // For mobile interactions with UserMenu
+  onClose?: () => void; // This toggles the sidebar's main open/collapsed state
+  collapsed?: boolean; // Is the sidebar in icon-only mode
+  // onUserMenuClick prop from DashboardSidebar is removed as UserMenu will use onRequestSidebarExpand
 }
 
 const navItems: NavItem[] = [
@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
   },
   {
     title: "Search",
-    href: "/search", // Assuming a future search page
+    href: "/search",
     icon: <Search className="h-5 w-5" />,
   },
   {
@@ -61,7 +61,7 @@ const navItems: NavItem[] = [
   },
   {
     title: "Reporting",
-    href: "/reporting", // Assuming a future reporting page
+    href: "/reporting",
     icon: <BarChart3 className="h-5 w-5" />,
     submenu: [
       { title: "Analytics", href: "/reporting/analytics" },
@@ -71,22 +71,22 @@ const navItems: NavItem[] = [
   },
   {
     title: "Check-ins",
-    href: "/check-ins", // Assuming future page
+    href: "/check-ins",
     icon: <CheckCircle className="h-5 w-5" />,
   },
   {
     title: "Objectives",
-    href: "/objectives", // Assuming future page
+    href: "/objectives",
     icon: <Target className="h-5 w-5" />,
   },
   {
     title: "Career Hub",
-    href: "/career-hub", // Assuming future page
+    href: "/career-hub",
     icon: <LayoutGrid className="h-5 w-5" />,
   },
   {
     title: "Mail",
-    href: "/mail", // Assuming future page
+    href: "/mail",
     icon: <Mail className="h-5 w-5" />,
     submenu: [
       { title: "Inbox", href: "/mail/inbox" },
@@ -96,12 +96,12 @@ const navItems: NavItem[] = [
   },
   {
     title: "Kanban",
-    href: "/kanban", // Assuming future page
+    href: "/kanban",
     icon: <KanbanSquare className="h-5 w-5" />,
   },
   {
     title: "Tasks",
-    href: "/tasks", // Assuming future page
+    href: "/tasks",
     icon: <CheckCircle className="h-5 w-5" />,
     badge: 3,
   },
@@ -141,7 +141,7 @@ function MenuItem({
           "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors relative group",
           isActive
             ? "bg-accent text-accent-foreground"
-            : "hover:bg-accent hover:text-accent-foreground",
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
           collapsed && "justify-center px-2",
           item.submenu && !collapsed && "cursor-pointer"
         )}
@@ -174,13 +174,13 @@ function MenuItem({
         )}
       </Link>
       {item.submenu && isSubmenuOpen && !collapsed && (
-        <div className="ml-6 mt-1 space-y-1 border-l-2 border-accent pl-4 animate-in slide-in-from-left-5">
+        <div className="ml-6 mt-1 space-y-1 border-l-2 border-border pl-4 animate-in slide-in-from-left-3">
           {item.submenu.map((subItem) => (
             <Link
               key={subItem.href}
               href={subItem.href}
               className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm transition-colors",
+                "flex items-center rounded-md px-3 py-2 text-sm transition-colors text-muted-foreground",
                 pathname === subItem.href
                   ? "bg-accent text-accent-foreground"
                   : "hover:bg-accent hover:text-accent-foreground"
@@ -195,12 +195,12 @@ function MenuItem({
   );
 }
 
-export function DashboardSidebar({ onClose, collapsed = false, onUserMenuClick }: DashboardSidebarProps) {
+export function DashboardSidebar({ onClose, collapsed = false }: DashboardSidebarProps) {
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500); // Reduced loading time
+    const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -218,7 +218,7 @@ export function DashboardSidebar({ onClose, collapsed = false, onUserMenuClick }
     }));
   };
 
-  if (loading && !collapsed) { // Only show skeleton if not collapsed initially and loading
+  if (loading && !collapsed) {
     return (
       <div className={cn("flex h-screen flex-col border-r bg-background transition-all duration-300", collapsed ? "w-16" : "w-64", "p-4")}>
         <div className="flex h-14 items-center justify-between border-b px-0 mb-2">
@@ -244,21 +244,23 @@ export function DashboardSidebar({ onClose, collapsed = false, onUserMenuClick }
     >
       <div className="flex h-14 items-center justify-between border-b px-4">
         {!collapsed && (
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
-              <div className="h-4 w-4 rounded-sm bg-primary" />
+          <Link href="/" className="flex items-center gap-2 font-semibold group">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+              {/* Placeholder for PassForgeLogo if needed, or a simpler div */}
+              <div className="h-4 w-4 rounded-sm bg-primary group-hover:scale-110 transition-transform" />
             </div>
-            <span>PassForge</span>
+            <span className="text-foreground group-hover:text-primary transition-colors">PassForge</span>
           </Link>
         )}
         <div className={cn("flex gap-1", collapsed && "w-full justify-center")}>
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={onClose} // This toggles the sidebar's main state
             className="h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors"
             aria-label={collapsed ? "Open sidebar" : "Collapse sidebar"}
           >
+            {/* Use Menu when collapsed (to signify "expand"), PanelLeftClose when open (to signify "collapse") */}
             {collapsed ? <Menu className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
@@ -281,8 +283,8 @@ export function DashboardSidebar({ onClose, collapsed = false, onUserMenuClick }
 
       <UserMenu
         collapsed={collapsed}
-        onUserMenuClick={onUserMenuClick} // Pass this down for mobile interaction
-        notificationCount={1} // Example, can be dynamic
+        onRequestSidebarExpand={onClose} // Pass the sidebar's main toggle function
+        notificationCount={1}
       />
     </aside>
   );
