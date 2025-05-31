@@ -1,8 +1,10 @@
+
 // /src/features/dashboard/chat/chat-view.tsx
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button"; // Added Button import
 import { cn } from "@/lib/utils";
 import {
   ImageIcon,
@@ -13,6 +15,7 @@ import {
   ArrowUpIcon,
   Paperclip,
   PlusIcon,
+  MessageSquare // Ensured MessageSquare is imported
 } from "lucide-react";
 import { ChatInput } from "./components/chat-input";
 
@@ -56,8 +59,9 @@ function useAutoResizeTextarea({
 // Helper component for action buttons
 function ActionButton({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <button
+    <Button // Use Button component
       type="button"
+      variant="outline" // Example variant, adjust as needed
       className="group flex items-center gap-2 px-4 py-2 rounded-full transition-colors
                  bg-card text-card-foreground 
                  border border-border 
@@ -66,7 +70,7 @@ function ActionButton({ icon, label }: { icon: React.ReactNode; label: string })
     >
       {icon}
       <span className="text-sm">{label}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -92,7 +96,6 @@ export function ChatView() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (composeValue.trim()) {
-        // console.log("Sending from Textarea:", composeValue);
         setMessages(prev => [...prev, {id: Date.now().toString(), content: composeValue, sender: "User"}]); // Static sender
         setComposeValue("");
         adjustHeight(true);
@@ -103,20 +106,13 @@ export function ChatView() {
   const handleSendFromInput = async (content: string) => {
     if (!content.trim() || isSending) return;
     setIsSending(true);
-    // console.log("Sending from ChatInput:", content);
     await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
     setMessages(prev => [...prev, {id: Date.now().toString(), content, sender: "User"}]); // Static sender
     setIsSending(false);
   };
 
-  // Removed isLoadingAuth and !isAuthenticated checks for now
-
   return (
-    // The CSS variables --header-height and --footer-height are placeholders. 
-    // Actual height calculation might need to be based on known dashboard header/footer heights.
-    // Using a more generic approach for full height within its container for now.
     <div className="flex flex-col h-full">
-      {/* Message Display Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/20">
         {messages.map(msg => (
           <div 
@@ -126,7 +122,6 @@ export function ChatView() {
               msg.sender === 'User' ? 'bg-primary text-primary-foreground ml-auto' : 'bg-card text-card-foreground mr-auto'
             )}
           >
-            {/* <p className="text-xs font-semibold mb-1">{msg.sender}</p> */} {/* Sender name can be hidden if it's always "User" or "AI" */}
             <p className="text-sm">{msg.content}</p>
           </div>
         ))}
@@ -139,12 +134,8 @@ export function ChatView() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Rich Textarea input section */}
       <div className="p-2 sm:p-4 border-t bg-background">
         <div className="flex flex-col items-center w-full max-w-3xl mx-auto space-y-3">
-            {/* <h2 className="text-lg font-semibold text-foreground text-center">
-                What can I help you ship?
-            </h2> */}
             <div className="w-full">
                 <div className="relative bg-card rounded-xl border border-border shadow-md">
                     <Textarea
@@ -161,7 +152,7 @@ export function ChatView() {
                             "text-foreground text-sm", "focus:outline-none", "focus-visible:ring-0 focus-visible:ring-offset-0",
                             "placeholder:text-muted-foreground placeholder:text-sm", "min-h-[60px]"
                         )}
-                        style={{ overflow: "hidden" }} // Keep overflow hidden for auto-resize
+                        style={{ overflow: "hidden" }}
                     />
                     <div className="flex items-center justify-between p-2 sm:p-3 border-t border-border">
                         <div className="flex items-center gap-1 sm:gap-2">
@@ -176,7 +167,7 @@ export function ChatView() {
                             type="button"
                             onClick={() => { if (composeValue.trim()) { handleComposeKeyDown({ key: 'Enter', preventDefault: () => {}, shiftKey: false } as React.KeyboardEvent<HTMLTextAreaElement>); }}}
                             className={cn(
-                                "px-3 py-1.5 sm:px-4 sm:py-2 text-sm", // Adjusted padding
+                                "px-3 py-1.5 sm:px-4 sm:py-2 text-sm",
                                 composeValue.trim() ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground cursor-not-allowed"
                             )}
                             disabled={!composeValue.trim()}
@@ -190,15 +181,12 @@ export function ChatView() {
                     <ActionButton icon={<ImageIcon className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground" />} label="Clone Screenshot" />
                     <ActionButton icon={<Figma className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground" />} label="Import Figma" />
                     <ActionButton icon={<MonitorIcon className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground" />} label="Landing Page" />
-                    {/* <ActionButton icon={<FileUp className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground" />} label="Upload Project" /> */}
-                    {/* <ActionButton icon={<CircleUserRound className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground" />} label="Sign Up Form" /> */}
                 </div>
             </div>
         </div>
       </div>
-
-      {/* The separate ChatInput component can be used for quick messages if needed, or removed if the Textarea above is sufficient */}
-      {/* For this example, I'll keep it as the primary quick input, you can decide which to prioritize */}
+      
+      {/* If you want the simpler input as an alternative or primary: */}
       {/* <ChatInput 
         onSend={handleSendFromInput} 
         isSending={isSending} 
