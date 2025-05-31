@@ -460,3 +460,87 @@ When developing new features, adhere to the project's established error handling
 *   Be mindful of PII: do not log sensitive user data unless absolutely necessary and properly secured/anonymized, especially in logs that might go to third-party services like Sentry.
 
 This guide provides a template for extending the application with new features in a structured and maintainable way, including robust error handling and logging.
+
+## X. Handling Complex Form Data with Server Actions
+
+While the authentication forms in this project handle simple, flat data fields, many features will require submitting more complex data structures, such as arrays of objects (e.g., a list of order items, user preferences, etc.). `FormData` primarily supports simple key-value pairs. To handle complex data effectively with `FormData` and Server Actions, the recommended pattern is:
+
+### A. The Challenge with FormData and Complex Data
+`FormData` doesn't inherently support structured data like nested objects or arrays directly as distinct, typed fields. Trying to append an object directly will result in `[object Object]`.
+
+### B. Recommended Pattern for Complex Data
+This pattern involves serializing complex data into a JSON string on the client, sending it as a single `FormData` field, and then deserializing and validating it on the server.
+
+1.  **Client-Side Steps:**
+    *   **Collect Data:** Gather your complex data (e.g., an array of items from a dynamic form or state).
+    *   **Serialize to JSON:** Use `JSON.stringify()` to convert the complex JavaScript object/array into a JSON string.
+    *   **Append to FormData:** Append this JSON string to your `FormData` object under a specific key. A common convention is to use a key like `itemsJson` or `complexDataJson`.
+        ```javascript
+        // Example client-side logic (e.g., in a form submission handler)
+        const items = [
+          { productId: '123', quantity: 2 },
+          { productId: '456', quantity: 1 },
+        ];
+        const formData = new FormData(event.currentTarget); // Or new FormData();
+        formData.append('itemsJson', JSON.stringify(items));
+        formData.append('orderNotes', 'Please ship quickly.'); // Other simple fields
+
+        // Then submit formData to your Server Action
+        // await yourServerAction(previousState, formData);
+        ```
+
+2.  **Server-Side Steps (within your Server Action):**
+    *   **Retrieve JSON String:** Get the JSON string from `FormData` using its key.
+        ```typescript
+        // Example Server Action
+        // import { z } from 'zod';
+
+        // Define your Zod schema for the complex data
+        // const OrderItemSchema = z.object({
+        //   productId: z.string(),
+        //   quantity: z.number().min(1),
+        // });
+        // const CreateOrderPayloadSchema = z.object({
+        //   items: z.array(OrderItemSchema),
+        //   orderNotes: z.string().optional(),
+        // });
+
+        export async function createOrderAction(prevState: any, formData: FormData) {
+          const itemsJson = formData.get('itemsJson') as string | null;
+          const orderNotes = formData.get('orderNotes') as string | null;
+          let parsedItems = [];
+
+          if (itemsJson) {
+            try {
+              parsedItems = JSON.parse(itemsJson);
+            } catch (e) {
+              // Handle JSON parsing error
+              return { success: false, message: 'Invalid items data format.' };
+            }
+          }
+
+          // Prepare the object for Zod validation
+          const payloadToValidate = {
+            items: parsedItems,
+            orderNotes: orderNotes || undefined, // Handle optional simple fields
+          };
+
+          // Validate the parsed object
+          // const validationResult = CreateOrderPayloadSchema.safeParse(payloadToValidate);
+          // if (!validationResult.success) {
+          //   // Handle validation errors
+          //   return { success: false, message: 'Validation failed.', errors: validationResult.error.flatten() };
+          // }
+
+          // const validatedData = validationResult.data;
+          // ... proceed with your business logic using validatedData.items and validatedData.orderNotes
+          return { success: true, message: 'Order created!' };
+        }
+        ```
+    *   **Parse JSON:** Use `JSON.parse()` to convert the JSON string back into a JavaScript object or array.
+    *   **Validate with Zod:** Validate the *parsed JavaScript object* against your corresponding Zod schema (e.g., `CreateOrderPayloadSchema.parse(parsedObject)` or `safeParse`). Your Zod schema should be defined to match the structure of the *intended JavaScript object*, not the raw `FormData`.
+
+### C. Why Validate the Parsed Object?
+You validate the JavaScript object obtained after `JSON.parse()` because Zod schemas are designed to validate the structure and types of JavaScript data. This ensures that the data passed to your services or business logic is in the correct, expected format after being reconstructed from the `FormData` submission.
+
+This approach allows you to leverage the simplicity of `FormData` for submissions while still being able to handle and robustly validate complex data structures on the server.
