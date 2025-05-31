@@ -3,7 +3,7 @@
 
 This guide focuses on structuring your dashboard's shared layout, nested routes like chat, and the organization of your `/src/features/dashboard` directory.
 
-**NOTE:** Items marked with `[MOVED]` or `[EXTRACTED]` or `[CREATED]` indicate changes made during refactoring. Original paths might be obsolete or their content significantly altered.
+**NOTE:** Items marked with `[MOVED]` or `[EXTRACTED]` or `[CREATED]` indicate changes made during refactoring. Original paths might be obsolete or their content significantly altered. `[OBSOLETE]` indicates the file/path is no longer needed.
 
 ## Core Principles:
 
@@ -45,7 +45,7 @@ This guide focuses on structuring your dashboard's shared layout, nested routes 
         *   `user-menu.tsx` (exports `UserMenu` component, used within `DashboardSidebar`) **[CREATED IN PHASE 1]**
         *   `index.ts` (Barrel file: `export * from './dashboard-sidebar'; export * from './dashboard-header'; export * from './user-menu';`) **[CREATED IN PHASE 1]**
 *   **Old Locations (Obsolete after Phase 1):**
-    * `src/features/dashboard/components/sidebar.tsx` `[MOVED to /layout/dashboard-sidebar.tsx in PHASE 1]`
+    * `src/features/dashboard/components/sidebar.tsx` `[OBSOLETE after PHASE 1]`
     * Header logic was inside `src/features/dashboard/components/dashboard-layout.tsx` `[EXTRACTED to /layout/dashboard-header.tsx in PHASE 1]`
 
 ## 2\. Dashboard Pages (Example: Main & Chat)
@@ -68,8 +68,8 @@ This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
     *   Main view component file: `dashboard-homepage-view.tsx` (exports `DashboardHomepageView`) **[CREATED IN PHASE 2]**
     *   Barrel file: `index.ts` (exports `DashboardHomepageView`) **[CREATED IN PHASE 2]**
 *   **Old Location (Obsolete after Phase 2)**:
-    * `src/features/dashboard/components/dashboard-homepage/dashboard-homepage.tsx` `[MOVED to /features/dashboard/dashboard-homepage/dashboard-homepage-view.tsx in PHASE 2]`
-    * `src/features/dashboard/components/dashboard-homepage/index.ts` `[CONTENT MOVED / OBSOLETED in PHASE 2]`
+    * `src/features/dashboard/components/dashboard-homepage/dashboard-homepage.tsx` `[OBSOLETE after PHASE 2]`
+    * `src/features/dashboard/components/dashboard-homepage/index.ts` `[OBSOLETE after PHASE 2]`
 
 #### B. Chat Page (Nested under Dashboard)
 *   **URL**: `/dashboard/chat`
@@ -85,9 +85,12 @@ This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
     ```
 
 *   **Feature Component Location**: `/src/features/dashboard/chat/` **[PHASE 3 COMPLETE]**
-    *   Main view component file: `chat-view.tsx` (exports `ChatView`) **[CREATED IN PHASE 3]**
+    *   Main view component file: `chat-view.tsx` (exports `ChatView`, contains the main chat UI logic and renders `chat-input.tsx`) **[CREATED IN PHASE 3]**
+    *   Sub-component: `components/chat-input.tsx` (exports `ChatInput`, used by `ChatView`) **[CREATED IN PHASE 3]**
     *   Barrel file: `index.ts` (exports `ChatView`) **[CREATED IN PHASE 3]**
-*   **Current Main Chat Component (Wrapped by ChatView)**: `src/features/chat/components/chat-page.tsx` (This remains the core chat logic provider).
+*   **Old Chat Component Location**: `src/features/chat/components/chat-page.tsx` `[OBSOLETE after PHASE 3 - logic moved to chat-view.tsx]`
+*   **Old Chat Input Component Location**: `src/features/chat/components/chat-input.tsx` `[OBSOLETE after PHASE 3 - logic moved to /dashboard/chat/components/chat-input.tsx]`
+*   **Old Chat Messages Component Location**: `src/features/chat/components/chat-messages.tsx` `[OBSOLETE after PHASE 3 - logic handled within chat-view.tsx]`
 
 ## 3\. Feature Structure: `/src/features/dashboard/`
 This directory groups all code related to the dashboard's functionality and views.
@@ -102,23 +105,19 @@ This directory groups all code related to the dashboard's functionality and view
 │
 ├── components/                 # Main orchestrating components or legacy components before full refactor
 │   └── dashboard-layout.tsx    # Main layout component, now uses items from /layout/
-│   └── dashboard-homepage/     # [MOVED/RESTRUCTURED in Phase 2 to /features/dashboard/dashboard-homepage/]
-│   │   └── dashboard-homepage.tsx # [MOVED/OBSOLETED in PHASE 2]
-│   │   └── index.ts            # [CONTENT MOVED/OBSOLETED in PHASE 2]
-│   └── index.ts                # Barrel file for components like DashboardLayout [UPDATED in PHASE 2]
+│   └── index.ts                # Barrel file for components like DashboardLayout
 │
 ├── dashboard-homepage/         # [CREATED/POPULATED IN PHASE 2] Feature for the main /dashboard page content
-│   ├── components/             # UI sub-components specific to dashboard-homepage
-│   │   ├── stats-card.tsx      # (Example, not yet implemented)
-│   │   └── recent-activity.tsx # (Example, not yet implemented)
-│   ├── hooks/                  # Custom hooks for this feature (e.g., useFetchDashboardData.ts) (Example, not yet implemented)
+│   ├── components/             # UI sub-components specific to dashboard-homepage (Example)
+│   ├── hooks/                  # Custom hooks for this feature (Example)
 │   ├── dashboard-homepage-view.tsx # Main view component (exports DashboardHomepageView) [CREATED IN PHASE 2]
 │   └── index.ts                # Barrel file for this feature [CREATED IN PHASE 2]
 │
-├── chat/                       # [CREATED/POPULATED IN PHASE 3] Feature for the /dashboard/chat page content *within dashboard context*
-│   ├── components/             # UI sub-components specific to dashboard's chat view (if any) (Example, not yet implemented)
-│   ├── hooks/                  # Custom hooks for dashboard's chat view (if any) (Example, not yet implemented)
-│   ├── chat-view.tsx           # Main view component (exports ChatView, wraps actual chat logic from /src/features/chat) [CREATED IN PHASE 3]
+├── chat/                       # [CREATED/POPULATED IN PHASE 3] Feature for the /dashboard/chat page content
+│   ├── components/             # UI sub-components specific to dashboard's chat view
+│   │   └── chat-input.tsx      # Chat input component used by ChatView [CREATED IN PHASE 3]
+│   ├── hooks/                  # Custom hooks for dashboard's chat view (if any) (Example)
+│   ├── chat-view.tsx           # Main view component (exports ChatView, contains full chat UI) [CREATED IN PHASE 3]
 │   └── index.ts                # Barrel file for this feature [CREATED IN PHASE 3]
 │
 │
@@ -138,4 +137,3 @@ This directory groups all code related to the dashboard's functionality and view
 *   **`services/` or `actions/`**: (Optional) For API calls or business logic functions (e.g., `FetchChatMessages.ts`, `UpdateSettingsAction.ts`). Remember your `PascalCase` convention for functions/actions.
 *   **`types/` or `[feature-name].types.ts`**: TypeScript type definitions specific to the feature.
 
-    
