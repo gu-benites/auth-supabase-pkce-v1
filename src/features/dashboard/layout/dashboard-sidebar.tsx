@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -123,7 +124,7 @@ function MenuItem({
 
   const isActive =
     normalizedPath === normalizedHref ||
-    (normalizedPath.startsWith(`\${normalizedHref}/\`) &&
+    (normalizedPath.startsWith(`${normalizedHref}/`) &&
       !normalizedPath.replace(normalizedHref, "").includes("/"));
 
   return (
