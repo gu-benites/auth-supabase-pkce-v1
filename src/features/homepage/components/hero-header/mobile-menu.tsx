@@ -8,7 +8,6 @@ import type { NavItem } from '../../types';
 import NavLink from './nav-link';
 import DropdownItem from './dropdown-item'; 
 import { ChevronDownIcon as ChevronDownIconImported } from './icons'; 
-// Removed direct useAuth import here; props will be passed down
 import { signOutUserAction } from '@/features/auth/actions';
 import { Button, Separator } from '@/components/ui';
 import { Loader2 } from 'lucide-react';
@@ -17,8 +16,8 @@ interface MobileMenuProps {
   isOpen: boolean;
   items: NavItem[]; 
   onClose: () => void;
-  isSessionLoading: boolean; // Prop for session loading state
-  isAuthenticated: boolean; // Prop for basic authentication state (session exists)
+  isSessionLoading: boolean; // Prop for session loading state (now includes mounted check)
+  isAuthenticated: boolean; // Prop for basic authentication state (now includes mounted check)
 }
 
 /**
@@ -32,8 +31,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
   isOpen, 
   items, 
   onClose,
-  isSessionLoading, // Use passed prop
-  isAuthenticated, // Use passed prop
+  isSessionLoading, // Use passed prop (which now considers HeroHeader's mounted state)
+  isAuthenticated, // Use passed prop (which now considers HeroHeader's mounted state)
 }) => {
   const mobileMenuVariants = {
     hidden: { opacity: 0, y: -20 },
@@ -81,9 +80,9 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
             <Separator className="my-3 w-full" />
 
-            {isSessionLoading ? (
+            {isSessionLoading ? ( // This prop now reflects HeroHeader's `!mounted || isSessionLoading`
                <Loader2 className="h-6 w-6 animate-spin text-primary my-2" />
-            ) : isAuthenticated ? (
+            ) : isAuthenticated ? ( // This prop now reflects HeroHeader's `mounted && currentIsAuthenticated`
               <>
                 <Button variant="default" asChild size="sm" className="w-full my-1" onClick={onClose}>
                   <Link href="/profile">Profile</Link>

@@ -36,17 +36,16 @@ const HeroHeader: React.FC = () => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const {
     user, // Raw Supabase user from session
     profile, // Detailed profile
-    // authUser, // Combined user + profile, available if stricter isAuthenticated is true
-    // isAuthenticated, // Stricter: true if session AND profile are loaded
-    // isLoadingAuth, // Composite loading for session + profile
     isSessionLoading, // True while AuthSessionProvider checks initial session
-    // sessionError,
-    // isProfileLoading,
-    // profileError,
   } = useAuth();
 
   const handleDropdownEnter = (label: string) => {
@@ -159,7 +158,7 @@ const HeroHeader: React.FC = () => {
           </div>
 
           <div className="hidden md:flex items-center flex-shrink-0 space-x-2 sm:space-x-4 lg:space-x-6">
-            {isSessionLoading ? (
+            {(!mounted || isSessionLoading) ? (
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             ) : currentIsAuthenticated ? (
               <>
@@ -207,8 +206,8 @@ const HeroHeader: React.FC = () => {
         isOpen={isMobileMenuOpen}
         items={NAV_ITEMS_MOBILE}
         onClose={toggleMobileMenu}
-        isSessionLoading={isSessionLoading} // Pass session loading state
-        isAuthenticated={currentIsAuthenticated} // Pass basic auth status
+        isSessionLoading={!mounted || isSessionLoading} // Pass combined loading state
+        isAuthenticated={mounted && currentIsAuthenticated} // Pass combined auth state
       />
     </motion.header>
   );
