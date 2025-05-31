@@ -99,6 +99,7 @@ export async function updateSession(request: NextRequest) {
   const publicPaths = [
     '/', // Homepage
     '/dashboard',
+    '/dashboard/chat',
     '/login',
     '/register',
     '/forgot-password',

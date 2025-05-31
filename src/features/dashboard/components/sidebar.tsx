@@ -60,7 +60,7 @@ const navItems: NavItem[] = [
   },
   {
     title: "Chat",
-    href: "/chat",
+    href: "/dashboard/chat",
     icon: <MessageSquare className="h-5 w-5" />,
     badge: 3, // Example badge count
   },
