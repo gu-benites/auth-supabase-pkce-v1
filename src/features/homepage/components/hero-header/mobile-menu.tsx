@@ -85,7 +85,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
             ) : isAuthenticated ? ( // This prop now reflects HeroHeader's `mounted && currentIsAuthenticated`
               <>
                 <Button variant="default" asChild size="sm" className="w-full my-1" onClick={onClose}>
-                  <Link href="/profile">Profile</Link>
+                  <Link href="/dashboard">Dashboard</Link>
                 </Button>
                 <form action={signOutUserAction} className="w-full">
                     <Button
@@ -104,7 +104,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                   <Link href="/login">Login</Link>
                 </Button>
                 <Button variant="default" asChild size="sm" className="w-full my-1" onClick={onClose}>
-                  <Link href="/register">Sign Up</Link>
+                  <Link href="/register">Register</Link>
                 </Button>
               </>
             )}

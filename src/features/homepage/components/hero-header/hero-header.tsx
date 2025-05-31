@@ -175,7 +175,7 @@ const HeroHeader: React.FC = () => {
                   <Button variant="ghost" type="submit" size="sm">Sign Out</Button>
                 </form>
                 <Button variant="secondary" asChild size="sm">
-                  <Link href="/profile">Profile</Link>
+                  <Link href="/dashboard">Dashboard</Link>
                 </Button>
               </>
             ) : (
@@ -184,7 +184,7 @@ const HeroHeader: React.FC = () => {
                   <Link href="/login">Login</Link>
                 </Button>
                 <Button variant="default" asChild size="sm">
-                  <Link href="/register">Sign Up</Link>
+                  <Link href="/register">Register</Link>
                 </Button>
               </>
             )}
