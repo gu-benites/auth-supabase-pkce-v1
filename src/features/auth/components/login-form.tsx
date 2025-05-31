@@ -10,6 +10,7 @@ import { signInWithPassword } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
+import * as Sentry from '@sentry/nextjs';
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -24,6 +25,14 @@ function SubmitButton() {
     </Button>
   );
 }
+
+// List of common user-facing error messages that shouldn't be sent to Sentry as system errors.
+const USER_FACING_ERROR_SUBSTRINGS = [
+  "invalid email address",
+  "password is required",
+  "invalid login credentials",
+  "please check your credentials"
+];
 
 /**
  * Renders the login form.
@@ -44,8 +53,6 @@ export default function LoginForm(): JSX.Element {
   useEffect(() => {
     if (state?.message) {
       if (state.success) {
-        // Successful login is handled by redirect in the server action.
-        // Toast might not be visible if redirect is too fast.
         toast({
           title: "Success!",
           description: state.message,
@@ -56,12 +63,25 @@ export default function LoginForm(): JSX.Element {
           description: state.message,
           variant: "destructive",
         });
+        // Log to Sentry if the error doesn't seem like a common user validation error.
+        const isUserFacingError = USER_FACING_ERROR_SUBSTRINGS.some(sub => 
+          state.message!.toLowerCase().includes(sub)
+        );
+        if (!isUserFacingError && !state.errorFields) {
+          Sentry.captureMessage('Login action failed with unexpected server message', {
+            level: 'error',
+            extra: { 
+              action: 'signInWithPassword', 
+              formStateMessage: state.message,
+              emailUsed: (document.getElementById('email') as HTMLInputElement)?.value?.substring(0,3) + '...'
+            }
+          });
+        }
       }
     }
   }, [state, toast]);
 
   return (
-    // Removed min-h-screen and centering, layout is handled by /app/(auth)/layout.tsx
     <div className="w-full animate-fade-in">
       <Card className="w-full shadow-xl">
         <CardHeader className="text-center">

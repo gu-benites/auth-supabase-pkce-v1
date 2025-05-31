@@ -11,6 +11,7 @@ import { requestPasswordReset } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { Mail, Loader2 } from "lucide-react";
+import * as Sentry from '@sentry/nextjs';
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -25,6 +26,12 @@ function SubmitButton() {
     </Button>
   );
 }
+
+// List of common user-facing error/info messages that shouldn't be sent to Sentry as system errors.
+const USER_FACING_FORGOT_PASSWORD_MESSAGES = [
+  "invalid email address",
+  "if an account exists for this email, a password reset link has been sent." // This is a success message
+];
 
 /**
  * Renders the "Forgot Password" form.
@@ -53,12 +60,25 @@ export default function ForgotPasswordForm(): JSX.Element {
           description: state.message,
           variant: "destructive",
         });
+        // Log to Sentry if the error doesn't seem like a common user validation/info error.
+        const isUserFacingError = USER_FACING_FORGOT_PASSWORD_MESSAGES.some(sub => 
+          state.message!.toLowerCase().includes(sub)
+        );
+        if (!isUserFacingError && !state.errorFields) {
+          Sentry.captureMessage('Forgot password action failed with unexpected server message', {
+            level: 'error',
+            extra: { 
+              action: 'requestPasswordReset', 
+              formStateMessage: state.message,
+              emailUsed: (document.getElementById('email') as HTMLInputElement)?.value?.substring(0,3) + '...'
+            }
+          });
+        }
       }
     }
   }, [state, toast]);
 
   return (
-    // Removed min-h-screen and centering, layout is handled by /app/(auth)/layout.tsx
     <div className="w-full animate-fade-in">
       <Card className="w-full shadow-xl">
         <CardHeader className="text-center">

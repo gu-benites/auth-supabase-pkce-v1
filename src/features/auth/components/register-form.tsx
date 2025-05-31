@@ -11,6 +11,7 @@ import { signUpNewUser } from "@/features/auth/actions";
 import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { UserPlus, Mail, KeyRound, Loader2, Eye, EyeOff, User } from "lucide-react";
+import * as Sentry from '@sentry/nextjs';
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -25,6 +26,20 @@ function SubmitButton() {
     </Button>
   );
 }
+
+// List of common user-facing error messages or informational messages that shouldn't be sent to Sentry as system errors.
+const USER_FACING_REGISTER_MESSAGES = [
+  "invalid email address",
+  "password cannot be empty",
+  "password must be at least 8 characters long",
+  "first name is required",
+  "last name is required",
+  "passwords do not match",
+  "please correct the errors in the form",
+  "account already confirmed. you can now log in.",
+  "sign up initiated! please check your email to confirm your account before logging in.",
+  "sign up process initiated. please check your email."
+];
 
 /**
  * Renders the registration form.
@@ -59,6 +74,20 @@ export function RegisterForm(): JSX.Element {
           description: state.message,
           variant: "destructive",
         });
+        // Log to Sentry if the error doesn't seem like a common user validation/info error.
+        const isUserFacingError = USER_FACING_REGISTER_MESSAGES.some(sub => 
+          state.message!.toLowerCase().includes(sub)
+        );
+        if (!isUserFacingError && !state.errorFields) {
+          Sentry.captureMessage('Registration action failed with unexpected server message', {
+            level: 'error',
+            extra: { 
+              action: 'signUpNewUser', 
+              formStateMessage: state.message,
+              emailUsed: (document.getElementById('email') as HTMLInputElement)?.value?.substring(0,3) + '...'
+            }
+          });
+        }
       }
     }
   }, [state, toast, router]);

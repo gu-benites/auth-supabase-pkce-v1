@@ -12,6 +12,7 @@ import { useToast } from "@/hooks";
 import { PassForgeLogo } from "@/components/icons";
 import { KeyRound, Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks";
+import * as Sentry from '@sentry/nextjs';
 
 /**
  * A button component that displays a loading spinner while the form action is pending.
@@ -26,6 +27,14 @@ function SubmitButton() {
     </Button>
   );
 }
+
+// List of common user-facing error/info messages that shouldn't be sent to Sentry as system errors.
+const USER_FACING_RESET_PASSWORD_MESSAGES = [
+  "password must be at least 8 characters long",
+  "passwords do not match",
+  "user not authenticated or session invalid. please try the password reset process again.",
+  "your password has been updated successfully. you can now log in with your new password." // Success message
+];
 
 /**
  * Renders the "Reset Password" form.
@@ -55,11 +64,21 @@ export default function ResetPasswordForm(): JSX.Element {
   useEffect(() => {
     if (!isSessionLoading) {
       if (!user || sessionError) {
+        const description = sessionError?.message || "Your session is invalid or has expired. Please try the password reset process again.";
         toast({
           title: "Authentication Error",
-          description: sessionError?.message || "Your session is invalid or has expired. Please try the password reset process again.",
+          description: description,
           variant: "destructive",
         });
+         Sentry.captureMessage('Reset Password: Invalid Session or Auth Error', {
+            level: 'warning',
+            extra: { 
+              userId: user?.id || 'unknown', 
+              sessionErrorMessage: sessionError?.message,
+              isSessionLoading,
+              hasUser: !!user
+            }
+          });
         router.push('/forgot-password');
       }
     }
@@ -72,20 +91,33 @@ export default function ResetPasswordForm(): JSX.Element {
           title: "Success!",
           description: state.message,
         });
-        // Form re-renders to show success message (see below)
       } else {
         toast({
           title: "Error",
           description: state.message,
           variant: "destructive",
         });
+        // Log to Sentry if the error doesn't seem like a common user validation/info error.
+        const isUserFacingError = USER_FACING_RESET_PASSWORD_MESSAGES.some(sub => 
+          state.message!.toLowerCase().includes(sub)
+        );
+        if (!isUserFacingError && !state.errorFields) {
+          Sentry.captureMessage('Update password action failed with unexpected server message', {
+            level: 'error',
+            extra: { 
+              action: 'updateUserPassword', 
+              formStateMessage: state.message,
+              emailUsed: emailFromQuery || 'not provided'
+            }
+          });
+        }
       }
     }
-  }, [state, toast]);
+  }, [state, toast, emailFromQuery]);
 
   if (isSessionLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12"> {/* Adjusted for potential layout */}
+      <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Verifying session...</p>
       </div>
@@ -118,12 +150,11 @@ export default function ResetPasswordForm(): JSX.Element {
 
   if (!user || sessionError) {
      return (
-        <div className="flex flex-col items-center justify-center py-12"> {/* Adjusted for potential layout */}
+        <div className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground">Redirecting...</p>
         </div>
     );
   }
-
 
   return (
     <div className="w-full animate-fade-in">
@@ -153,12 +184,13 @@ export default function ResetPasswordForm(): JSX.Element {
                     type="email"
                     value={emailFromQuery}
                     disabled
-                    readOnly
+                    readOnly // Important for security, ensure it's not modifiable by user
                     className="pl-10 focus:ring-accent bg-muted/50 cursor-not-allowed"
                   />
                 </div>
               </div>
             )}
+            <input type="hidden" name="email" value={emailFromQuery || ''} /> {/* Ensure email is part of form data if needed by action */}
             <div className="space-y-2">
               <label
                 htmlFor="password"
