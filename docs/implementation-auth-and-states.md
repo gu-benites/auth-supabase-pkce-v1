@@ -98,25 +98,3 @@ This phase focuses on restructuring how authentication state (session, user obje
 ### [x] Task 3.1: Remove Redundant Code
 *   **Details**: `src/components/providers/auth-state-provider.tsx` (old Zustand provider) was confirmed deleted. `src/stores/auth.store.ts` refactored. Old provider files in `src/components/providers/` were moved to `src/providers/`, and the old directory was confirmed deleted.
 *   **Status**: Implemented.
-
-### [ ] Task 3.2: Update Project Documentation
-*   **Files**: `docs/project-overview.md`, `docs/integrating-state-and-data-fetching.md`, `docs/supabase-client-deep-dive.md`, `docs/adding-new-features.md`.
-*   **Details**: Ensure all docs reflect the new `useAuth` hook, `AuthSessionProvider`, `useUserProfileQuery`, service layer, action layer, and the roles of Context/React Query and Zustand.
-*   **Status**: In progress / Last updated with these changes.
-
-## Phase 4: Testing
-
-### [ ] Task 4.1: Thoroughly Test Authentication Flows
-*   [ ] Test registration.
-*   [ ] Test login.
-*   [ ] Test logout.
-*   [ ] Test password reset.
-*   [ ] Test email confirmation.
-*   [ ] Verify conditional UI rendering based on auth state in `HomepageHeader` and any other relevant components.
-*   [ ] Verify profile data is displayed correctly using the new `useAuth` hook and detailed `UserProfile` structure.
-
-### [ ] Task 4.2: Test Data Fetching with TanStack Query
-*   [ ] Verify profile data fetching, loading states, and error states for the detailed `UserProfile`.
-*   [ ] Check React Query Devtools for query caching and behavior.
-
-This plan provides a structured approach to refactoring your application.
