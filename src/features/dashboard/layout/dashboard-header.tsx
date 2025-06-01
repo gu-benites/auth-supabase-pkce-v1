@@ -4,14 +4,13 @@
 import { useSelectedLayoutSegment } from "next/navigation";
 import { Menu, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Avatar removed for now
-// import { Skeleton } from "@/components/ui/skeleton"; // Skeleton for auth loading removed
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/utils";
-// import { useAuth } from "@/features/auth/hooks"; // Removed useAuth
 
 const getPageTitle = (segment: string | null): string => {
-  if (!segment) return "Dashboard";
+  if (!segment) return "Dashboard"; // Fallback for the root of the (dashboard) group or if segment is 'dashboard'
+  if (segment === 'dashboard') return "Dashboard"; // Explicitly handle 'dashboard' segment
+  // Convert kebab-case or simple segment to Title Case
   return segment
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -20,7 +19,7 @@ const getPageTitle = (segment: string | null): string => {
 
 interface DashboardHeaderProps {
   onToggleMobileSidebar: () => void;
-  isMobileSidebarOpen: boolean;
+  isMobileSidebarOpen: boolean; // This prop is available if needed for other logic
 }
 
 export function DashboardHeader({ onToggleMobileSidebar }: DashboardHeaderProps) {
@@ -48,7 +47,6 @@ export function DashboardHeader({ onToggleMobileSidebar }: DashboardHeaderProps)
       </div>
       <div className="flex items-center gap-3">
         <ThemeToggle />
-        {/* User Avatar display removed for now */}
         <Button
           variant="ghost"
           size="icon"
