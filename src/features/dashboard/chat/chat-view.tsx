@@ -3,9 +3,9 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea"; // Project's Textarea component
+import { Button as ShadCnButton } from "@/components/ui/button"; // Alias for ActionButton
+import { cn } from "@/lib/utils"; // Project's cn utility
 import {
   ImageIcon,
   FileUp,
@@ -17,8 +17,6 @@ import {
   PlusIcon,
   MessageSquare
 } from "lucide-react";
-// ChatInput component import is removed as we are replacing its functionality with the new rich input.
-// import { ChatInput } from "./components/chat-input";
 
 // Helper hook for auto-resizing textarea
 function useAutoResizeTextarea({
@@ -57,7 +55,7 @@ function useAutoResizeTextarea({
   return { textareaRef, adjustHeight };
 }
 
-// Helper component for action buttons, now using ShadCN Button
+// Helper component for action buttons, using ShadCN Button
 interface ActionButtonProps {
   icon: React.ReactNode;
   label: string;
@@ -65,10 +63,10 @@ interface ActionButtonProps {
 }
 function ActionButton({ icon, label, onClick }: ActionButtonProps) {
   return (
-    <Button
+    <ShadCnButton // Using the aliased ShadCN Button
       type="button"
       variant="outline"
-      size="sm" // Using sm size for a more compact look like in the image
+      size="sm"
       className="group flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors
                  bg-card text-card-foreground 
                  border-border 
@@ -78,16 +76,15 @@ function ActionButton({ icon, label, onClick }: ActionButtonProps) {
     >
       {icon}
       <span className="text-xs font-medium">{label}</span>
-    </Button>
+    </ShadCnButton>
   );
 }
 
 export function ChatView() {
   const [messages, setMessages] = useState<{id: string, content: string, sender: string}[]>([]);
-  // const [isSending, setIsSending] = useState(false); // Kept if we need to show loading on send
   const [composeValue, setComposeValue] = useState("");
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 60, // Adjusted minHeight as per VercelV0Chat
+    minHeight: 60,
     maxHeight: 200,
   });
 
@@ -136,7 +133,7 @@ export function ChatView() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* New Input Area based on VercelV0Chat */}
+      {/* Input Area based on VercelV0Chat */}
       <div className="p-2 sm:p-4 border-t bg-background">
         <div className="flex flex-col items-center w-full max-w-3xl mx-auto space-y-3 sm:space-y-4">
             <h1 className="text-xl sm:text-2xl font-semibold text-foreground text-center">
@@ -145,7 +142,7 @@ export function ChatView() {
 
             <div className="w-full">
                 <div className="relative bg-card rounded-xl border border-border shadow-md">
-                    <div className="overflow-y-auto"> {/* Added to contain textarea scroll if content exceeds maxHeight */}
+                    <div className="overflow-y-auto">
                         <Textarea
                             ref={textareaRef}
                             value={composeValue}
@@ -159,50 +156,48 @@ export function ChatView() {
                                 "w-full px-4 py-3", "resize-none", "bg-transparent", "border-none",
                                 "text-foreground text-sm", "focus:outline-none", "focus-visible:ring-0 focus-visible:ring-offset-0",
                                 "placeholder:text-muted-foreground placeholder:text-sm",
-                                "min-h-[60px]" // min-h-[60px] from VercelV0Chat
+                                "min-h-[60px]"
                             )}
-                            style={{ overflow: "hidden" }} // Hides textarea's own scrollbar
+                            style={{ overflow: "hidden" }}
                         />
                     </div>
-                    <div className="flex items-center justify-between p-2 sm:p-3 border-t border-border">
-                        <div className="flex items-center gap-1 sm:gap-2">
-                            <Button
+                    {/* Toolbar with Attach, Project, Send buttons - Reverted to raw buttons */}
+                    <div className="flex items-center justify-between p-3 border-t border-border">
+                        <div className="flex items-center gap-2">
+                            <button
                                 type="button"
-                                variant="ghost" 
-                                size="icon"
-                                className="group text-muted-foreground hover:text-accent-foreground"
+                                className="group p-2 hover:bg-accent rounded-lg transition-colors flex items-center gap-1"
                                 aria-label="Attach file"
                             >
-                                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-                                <span className="text-xs text-muted-foreground group-hover:text-accent-foreground hidden group-hover:sm:inline transition-opacity ml-1">
+                                <Paperclip className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground" />
+                                <span className="text-xs text-muted-foreground group-hover:text-accent-foreground hidden group-hover:inline transition-opacity">
                                     Attach
                                 </span>
-                            </Button>
+                            </button>
                         </div>
-                        <div className="flex items-center gap-1 sm:gap-2">
-                            <Button
+                        <div className="flex items-center gap-2">
+                            <button
                                 type="button"
-                                variant="secondary"
-                                size="sm"
-                                className="px-2 py-1 text-xs sm:text-sm"
+                                className="px-2 py-1 rounded-lg text-sm bg-secondary text-secondary-foreground transition-colors border border-transparent hover:bg-secondary/90 flex items-center justify-between gap-1"
                             >
-                                <PlusIcon className="w-4 h-4 mr-1 sm:mr-2" />
+                                <PlusIcon className="w-4 h-4" />
                                 Project
-                            </Button>
-                            <Button
+                            </button>
+                            <button
                                 type="button"
-                                size="sm" // Send button typically matches project button or is icon only
                                 className={cn(
-                                    "px-3 py-1.5 sm:px-3 sm:py-1.5 text-xs sm:text-sm", // Adjusted padding for sm size
-                                    composeValue.trim() ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground cursor-not-allowed"
+                                    "px-1.5 py-1.5 rounded-lg text-sm transition-colors border border-transparent flex items-center justify-center gap-1", // ensure justify-center for icon only
+                                    composeValue.trim()
+                                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                        : "bg-muted text-muted-foreground cursor-not-allowed"
                                 )}
                                 disabled={!composeValue.trim()}
                                 onClick={handleSendMessage}
                                 aria-label="Send message"
                             >
                                 <ArrowUpIcon className="w-4 h-4" />
-                                <span className="sr-only sm:not-sr-only sm:ml-1">Send</span>
-                            </Button>
+                                <span className="sr-only">Send</span>
+                            </button>
                         </div>
                     </div>
                 </div>
