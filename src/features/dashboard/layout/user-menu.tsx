@@ -12,7 +12,7 @@ import {
   UserCircle2,
   ChevronsUpDown,
   ChevronsDownUp,
-  Loader2, // Keep Loader2 if it's used for the overall loadingAuth state
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ export function UserMenu({
   notificationCount = 0,
   onRequestSidebarExpand,
 }: UserMenuProps) {
+  const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -66,13 +67,16 @@ export function UserMenu({
   const {
     user, 
     profile, 
-    isLoadingAuth,
-    // isSessionLoading, // We'll use isLoadingAuth primarily for UI readiness
-    // isProfileLoading,
+    isLoadingAuth, // Overall loading state
+    isSessionLoading, // Specific to session provider initial check
+    isProfileLoading, // Specific to profile query loading
   } = useAuth();
-  console.log(`[${getTimestampLog()}] UserMenu (Client): From useAuth - user ID: ${user?.id}, profile exists: ${!!profile}, isLoadingAuth: ${isLoadingAuth}`);
+  console.log(`[${getTimestampLog()}] UserMenu (Client): From useAuth - user ID: ${user?.id}, profile exists: ${!!profile}, isLoadingAuth: ${isLoadingAuth}, isSessionLoading: ${isSessionLoading}, isProfileLoading: ${isProfileLoading}`);
 
-
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -115,16 +119,59 @@ export function UserMenu({
     return profile?.email || user?.email || "No email available";
   };
   
-  const getInitials = () => {
-    const first = profile?.firstName?.[0] || (user?.user_metadata?.first_name as string)?.[0] || '';
-    const last = profile?.lastName?.[0] || (user?.user_metadata?.last_name as string)?.[0] || '';
+  const getInitials = (baseUser = user, baseProfile = profile) => {
+    const first = baseProfile?.firstName || (baseUser?.user_metadata?.first_name as string)?.[0] || '';
+    const last = baseProfile?.lastName || (baseUser?.user_metadata?.last_name as string)?.[0] || '';
     const initials = `${first}${last}`.toUpperCase();
     return initials || <UserCircle2 size={18} />;
   };
 
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
 
-  console.log(`[${getTimestampLog()}] UserMenu (Client): isLoadingAuth is ${isLoadingAuth}. Rendering decision point.`);
+  console.log(`[${getTimestampLog()}] UserMenu (Client): Mounted: ${mounted}, isSessionLoading: ${isSessionLoading}. isLoadingAuth is ${isLoadingAuth}. Rendering decision point.`);
+
+  // Primary loading state: session not yet determined or component not mounted
+  if (!mounted || isSessionLoading) {
+    console.log(`[${getTimestampLog()}] UserMenu (Client): Rendering initial skeletons (not mounted or session loading).`);
+    return (
+      <div className="mt-auto border-t p-4 relative" ref={menuRef}>
+        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+          <Skeleton className="h-9 w-9 rounded-full" />
+          {!collapsed && (
+            <>
+              <div className="flex-1 overflow-hidden">
+                <Skeleton className="h-4 w-20 mb-1" /> {/* Placeholder for name */}
+                <Skeleton className="h-3 w-24" /> {/* Placeholder for email */}
+              </div>
+              <span className="p-1.5 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Session resolved, but no user (should ideally be caught by layout redirect)
+  if (!user) {
+    console.log(`[${getTimestampLog()}] UserMenu (Client): Rendering 'No user' state.`);
+    return (
+      <div className="mt-auto border-t p-4 relative" ref={menuRef}>
+        <div className={cn("flex items-center gap-3 text-xs text-destructive", collapsed && "justify-center")}>
+          <UserCircle2 className="h-9 w-9" />
+          {!collapsed && <span>Error: No user session</span>}
+        </div>
+      </div>
+    );
+  }
+
+  // User session exists, now check profile loading state
+  // `isLoadingAuth` combines session and profile loading. `isProfileLoading` is specific.
+  // We want to show *some* info if session is there but profile is taking a moment.
+  const showProfileSkeletons = isProfileLoading && !profile;
+
+  console.log(`[${getTimestampLog()}] UserMenu (Client): Rendering main content. showProfileSkeletons: ${showProfileSkeletons}`);
 
   return (
     <div className="mt-auto border-t p-4 relative" ref={menuRef}>
@@ -140,60 +187,58 @@ export function UserMenu({
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpanded();}}
       >
-        {isLoadingAuth ? (
+        {/* Avatar Section */}
+        <div className="relative">
+          <Avatar className="h-9 w-9 text-sm">
+            {!showProfileSkeletons && avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt={getDisplayName()} />
+            ) : showProfileSkeletons ? (
+              <Skeleton className="h-full w-full rounded-full" />
+            ) : null}
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+              {getInitials(user, showProfileSkeletons ? undefined : profile)} 
+            </AvatarFallback>
+          </Avatar>
+          {notificationCount > 0 && !collapsed && !showProfileSkeletons && (
+            <span className={cn(
+              "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
+              expanded && "opacity-0" // Hide badge when menu items are expanded
+            )}>
+              {notificationCount}
+            </span>
+          )}
+        </div>
+
+        {/* Name and Email Section (Not collapsed) */}
+        {!collapsed && (
           <>
-            {collapsed ? (
-              <Skeleton className="h-9 w-9 rounded-full" />
-            ) : (
-              <>
-                <Skeleton className="h-9 w-9 rounded-full" />
-                <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              {showProfileSkeletons ? (
+                <>
                   <Skeleton className="h-4 w-24 mb-1" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
-                 <span className="p-1.5 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                </span>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="relative">
-              <Avatar className="h-9 w-9 text-sm">
-                <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
-              {notificationCount > 0 && !collapsed && (
-                <span className={cn(
-                  "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
-                  expanded && "opacity-0" // Hide badge when menu items are expanded
-                )}>
-                  {notificationCount}
-                </span>
-              )}
-            </div>
-            {!collapsed && (
-              <>
-                <div className="flex-1 overflow-hidden">
+                  <div className="truncate text-xs text-muted-foreground">{user.email || "Loading email..."}</div>
+                </>
+              ) : (
+                <>
                   <div className="font-medium truncate">{getDisplayName()}</div>
                   <div className="truncate text-xs text-muted-foreground">
                     {getEmailDisplay()}
                   </div>
-                </div>
-                <span className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
-                    {expanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
-                </span>
-              </>
-            )}
+                </>
+              )}
+            </div>
+            <span className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
+              {showProfileSkeletons ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                (expanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />)
+              }
+            </span>
           </>
         )}
       </div>
 
+      {/* Expanded Menu Items (Not collapsed and not loading profile) */}
       <AnimatePresence>
-        {!collapsed && expanded && !isLoadingAuth && ( 
+        {!collapsed && expanded && !showProfileSkeletons && ( 
           <motion.div
             initial={{ opacity: 0, y: 10, scale:0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
