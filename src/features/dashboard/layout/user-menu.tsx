@@ -139,7 +139,7 @@ export function UserMenu({
 
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
 
-  const isLoadingCoreData = !mounted || isSessionLoading || (!!user && isProfileLoading && !profile);
+  const isLoadingCoreData = !mounted || isSessionLoading || (user && isProfileLoading && !profile);
   // console.log(`[${getTimestampLog()}] UserMenu (Client): isLoadingCoreData: ${isLoadingCoreData}. Mounted: ${mounted}, isSessionLoading: ${isSessionLoading}, User: ${!!user}, isProfileLoading: ${isProfileLoading}, Profile: ${!!profile}`);
 
 
@@ -160,17 +160,23 @@ export function UserMenu({
         >
           {/* Avatar Section */}
           <div className="relative">
+           {isLoadingCoreData ? (
+             <Skeleton className="h-9 w-9 rounded-full" />
+           ) : user ? (
             <Avatar className="h-9 w-9 text-sm">
-              {isLoadingCoreData ? (
-                <Skeleton className="h-full w-full rounded-full" />
-              ) : avatarUrl ? (
-                <AvatarImage src={avatarUrl} alt={getDisplayName()} />
-              ) : null}
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {isLoadingCoreData ? <Loader2 className="h-4 w-4 animate-spin" /> : getInitials()}
-              </AvatarFallback>
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={getDisplayName()} />}
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {getInitials()}
+                </AvatarFallback>
             </Avatar>
-            {notificationCount > 0 && !collapsed && !isLoadingCoreData && (
+           ) : (
+            <Avatar className="h-9 w-9 text-sm">
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                    <UserCircle2 size={18} />
+                </AvatarFallback>
+            </Avatar>
+           )}
+            {notificationCount > 0 && !collapsed && !isLoadingCoreData && user && (
               <span className={cn(
                 "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
                 expanded && "opacity-0" 
@@ -189,13 +195,15 @@ export function UserMenu({
                     <Skeleton className="h-4 w-24 mb-1" />
                     <Skeleton className="h-3 w-32" />
                   </>
-                ) : (
+                ) : user ? (
                   <>
                     <div className="font-medium truncate">{getDisplayName()}</div>
                     <div className="truncate text-xs text-muted-foreground">
                       {getEmailDisplay()}
                     </div>
                   </>
+                ) : (
+                  <div className="font-medium truncate text-muted-foreground">Not Logged In</div>
                 )}
               </div>
               <span className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
@@ -268,7 +276,7 @@ export function UserMenu({
             <AlertDialogCancel onClick={() => setShowLogoutConfirm(false)}>
               Cancel
             </AlertDialogCancel>
-            <form action={signOutUserAction} method="POST" className="inline-block">
+            <form action={signOutUserAction} className="inline-block">
               <Button
                 type="submit"
                 variant="destructive"
@@ -286,3 +294,4 @@ export function UserMenu({
     </>
   );
 }
+
