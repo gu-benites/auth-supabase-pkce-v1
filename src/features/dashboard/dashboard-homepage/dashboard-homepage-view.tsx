@@ -14,10 +14,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { BarChart, CheckCircle, LineChart, Users } from 'lucide-react'; // Removed Loader2, UserCircle2
+import { BarChart, CheckCircle, LineChart, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-// import { useAuth } from '@/features/auth/hooks'; // Removed useAuth
-// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Avatar removed for now
+import { useAuth } from '@/features/auth/hooks'; // Import useAuth
 
 function LoadingCard() {
   return (
@@ -34,37 +33,40 @@ function LoadingCard() {
 }
 
 export function DashboardHomepageView() {
-  // Static welcome message
-  const displayName = "User";
+  const { user, profile, isLoadingAuth } = useAuth();
 
-  // Simulate loading state for design purposes if needed, or remove entirely
-  // const isLoading = false;
-  // if (isLoading) {
-  //   return (
-  //     <div className="flex flex-col gap-6 animate-pulse">
-  //       <Skeleton className="h-8 w-3/4 mb-4" />
-  //       <Skeleton className="h-10 w-1/2 mb-6" />
-  //       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-  //         {[...Array(4)].map((_, i) => <LoadingCard key={i} />)}
-  //       </div>
-  //       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-  //         <Skeleton className="lg:col-span-4 h-80" />
-  //         <Skeleton className="lg:col-span-3 h-80" />
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  const getDisplayName = () => {
+    if (isLoadingAuth) return null; // Handled by skeleton
+    if (profile?.firstName) return profile.firstName;
+    const userMetaFirstName = user?.user_metadata?.first_name as string | undefined;
+    if (userMetaFirstName) return userMetaFirstName;
+    if (user?.email) return user.email.split('@')[0];
+    return 'User';
+  };
+
+  const displayName = getDisplayName();
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3 mb-4">
-        {/* Avatar removed for now */}
-        <div>
-          <h2 className="text-2xl font-semibold text-foreground">Welcome to your dashboard!</h2>
-          <p className="text-muted-foreground">
-            Here's what's happening with your account today.
-          </p>
-        </div>
+      {/* Updated Welcome Message Section */}
+      <div className="mb-4">
+        {isLoadingAuth ? (
+          <>
+            <Skeleton className="h-10 w-3/4 sm:w-1/2 mb-2" /> {/* Skeleton for "Hello, Name!" */}
+            <Skeleton className="h-6 w-1/2 sm:w-1/3" />      {/* Skeleton for "Welcome back..." */}
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl sm:text-4xl font-bold">
+              <span className="bg-gradient-to-r from-[hsl(var(--chart-1))] to-[hsl(var(--destructive))] bg-clip-text text-transparent">
+                Hello, {displayName}!
+              </span>
+            </h1>
+            <p className="text-lg text-muted-foreground mt-1">
+              Welcome back! Here&apos;s what&apos;s happening today.
+            </p>
+          </>
+        )}
       </div>
       
       <Tabs defaultValue="overview" className="space-y-4">
