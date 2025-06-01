@@ -13,58 +13,38 @@ export interface ProfileServiceResponse {
 }
 
 /**
- * Fetches a user's profile data from the 'profiles' table and merges it
- * with email from 'auth.users'.
+ * Fetches a user's profile data from the 'profiles' table and uses the provided email.
  *
  * @param userId The ID of the user whose profile is to be fetched.
+ * @param userEmail The email of the user, passed from an authenticated context.
  * @returns An object containing the user profile data or an error.
  */
-export async function getProfileByUserId(userId: string): Promise<ProfileServiceResponse> {
-  console.log(`[${getTimestamp()}] getProfileByUserId: Service started for user ID: ${userId}.`);
+export async function getProfileByUserId(userId: string, userEmail: string | null | undefined): Promise<ProfileServiceResponse> {
+  console.log(`[${getTimestamp()}] getProfileByUserId: Service started for user ID: ${userId}, with email: ${userEmail ? userEmail.substring(0,3) + '...' : 'N/A'}.`);
   const supabase = await createClient();
 
   try {
     // 1. Fetch profile data from the 'profiles' table
     console.log(`[${getTimestamp()}] getProfileByUserId: Fetching from 'profiles' table for user ID: ${userId}.`);
     const { data: profileData, error: profileError } = await supabase
-      .from('profiles') // ASSUMPTION: Table name is 'profiles'
-      .select('*') // Select all columns defined in your UserProfileSchema from this table
+      .from('profiles') 
+      .select('*') 
       .eq('id', userId)
       .maybeSingle();
-    console.log(`[${getTimestamp()}] getProfileByUserId: 'profiles' table query completed.`);
+    console.log(`[${getTimestamp()}] getProfileByUserId: 'profiles' table query completed for user ID: ${userId}.`);
 
     if (profileError) {
       console.error(`[${getTimestamp()}] getProfileByUserId: Error fetching profile for user ${userId}:`, profileError);
       return { data: null, error: profileError };
     }
 
-    // 2. Fetch the user's email from auth.users (as it's authoritative there)
-    console.log(`[${getTimestamp()}] getProfileByUserId: Fetching auth user (admin) for email for user ID: ${userId}.`);
-    // Ensure you have appropriate permissions if using admin client functions.
-    // For profile service, using the regular client if it's the authenticated user's profile is safer.
-    // However, if this service is only ever called by a server action that has already authenticated the user,
-    // then fetching their own details or related details might be acceptable.
-    // The current auth.getUser() in the calling Server Action is already user-scoped.
-    // If we just need the email of the *current* user, the Server Action already has it.
-    // Let's assume the goal is to get the email directly for the given userId, potentially for admin scenarios (though less likely for a "get own profile" service).
-    // Sticking to the existing pattern which might rely on admin rights if this service were more generic.
-    // For a current user profile, user.email from the server action is already available.
-    const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(userId);
-    console.log(`[${getTimestamp()}] getProfileByUserId: Auth user (admin) fetch completed for user ID: ${userId}.`);
-
-
-    if (authUserError) {
-      console.error(`[${getTimestamp()}] getProfileByUserId: Error fetching auth user ${userId} for email:`, authUserError);
-      return { data: null, error: authUserError };
-    }
-    
-    const userEmail = authUserData?.user?.email ?? null;
-    console.log(`[${getTimestamp()}] getProfileByUserId: Email for user ${userId}: ${userEmail}.`);
+    // Email is now passed directly, no need to fetch it via admin client here.
+    console.log(`[${getTimestamp()}] getProfileByUserId: Using provided email for user ${userId}: ${userEmail ? userEmail.substring(0,3) + '...' : 'N/A'}.`);
 
     // 3. Combine data and validate with Zod
     const combinedData = {
       id: userId,
-      email: userEmail,
+      email: userEmail, // Use the passed email
       firstName: profileData?.first_name ?? null,
       lastName: profileData?.last_name ?? null,
       gender: profileData?.gender ?? null,
@@ -79,8 +59,8 @@ export async function getProfileByUserId(userId: string): Promise<ProfileService
       subscriptionPeriod: profileData?.subscription_period ?? null,
       subscriptionStartDate: profileData?.subscription_start_date ?? null,
       subscriptionEndDate: profileData?.subscription_end_date ?? null,
-      createdAt: profileData?.created_at ?? new Date().toISOString(),
-      updatedAt: profileData?.updated_at ?? new Date().toISOString(),
+      createdAt: profileData?.created_at ?? new Date().toISOString(), // Fallback for existing records
+      updatedAt: profileData?.updated_at ?? new Date().toISOString(), // Fallback for existing records
     };
     console.log(`[${getTimestamp()}] getProfileByUserId: Combined data for user ID: ${userId}. Validating.`);
 
@@ -96,7 +76,7 @@ export async function getProfileByUserId(userId: string): Promise<ProfileService
 
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
-    console.error(`[${getTimestamp()}] getProfileByUserId: Unexpected error for user ID ${userId}:`, errorMessage);
+    console.error(`[${getTimestamp()}] getProfileByUserId: Unexpected error for user ID ${userId}:`, errorMessage, e);
     return { data: null, error: new Error(errorMessage) };
   }
 }

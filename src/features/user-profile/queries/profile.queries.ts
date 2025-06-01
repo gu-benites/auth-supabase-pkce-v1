@@ -29,14 +29,16 @@ export async function getCurrentUserProfile(): Promise<UserProfile> {
     console.error(`[${getTimestamp()}] getCurrentUserProfile: No authenticated user found.`);
     throw new Error('User not authenticated.');
   }
-  console.log(`[${getTimestamp()}] getCurrentUserProfile: Auth user ID: ${user.id}. Fetching profile by ID.`);
+  console.log(`[${getTimestamp()}] getCurrentUserProfile: Auth user ID: ${user.id}, Email: ${user.email ? user.email.substring(0,3) + '...' : 'N/A'}. Fetching profile by ID.`);
 
-  const { data: profile, error: serviceError } = await getProfileByUserId(user.id);
+  // Pass the user's email directly to the service
+  const { data: profile, error: serviceError } = await getProfileByUserId(user.id, user.email);
   console.log(`[${getTimestamp()}] getCurrentUserProfile: Profile service call completed.`);
 
   if (serviceError) {
     console.error(`[${getTimestamp()}] getCurrentUserProfile: Service error for user ${user.id}:`, serviceError.message);
-    throw new Error(`Failed to get user profile: ${serviceError.message}`);
+    // Propagate a cleaner error or the original one
+    throw new Error(serviceError.message || 'Failed to get user profile due to service error.');
   }
   if (!profile) {
     console.error(`[${getTimestamp()}] getCurrentUserProfile: Profile not found for user ${user.id}.`);
