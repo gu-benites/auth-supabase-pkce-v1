@@ -68,7 +68,7 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Supabase Interaction (within Service):**
     - `supabase.auth.signInWithPassword()` is called to authenticate the user.
 - **Session Management & Redirection:**
-    - **Success:** Supabase returns a session. The `src/middleware.ts` (delegating to `src/features/auth/utils/middleware.utils.ts`) plays a crucial role in managing and refreshing this session cookie. The user is then redirected to the homepage (`/`).
+    - **Success:** Supabase returns a session. The `src/middleware.ts` (delegating to `src/features/auth/utils/middleware.utils.ts`) plays a crucial role in managing and refreshing this session cookie. The user is then redirected to the homepage (`/`) by default, or to the dashboard (`/dashboard`) if login actions explicitly target it.
     - **Failure:** An error message is displayed to the user via toast notification.
 
 ### 4. Forgot Password (`/src/app/(auth)/forgot-password/page.tsx`)
@@ -105,11 +105,11 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **User Feedback:**
     - On success, a confirmation message is shown, and the user is presented with a button to navigate to the login page.
 
-### 6. User Sign Out (Example: Homepage Header)
+### 6. User Sign Out (Example: Homepage Header, User Menu)
 
-- **User Interface (e.g., `src/features/homepage/components/hero-header/hero-header.tsx` - Client Component):**
+- **User Interface (e.g., `src/features/homepage/components/hero-header/hero-header.tsx` or `src/features/dashboard/layout/user-menu.tsx` - Client Components):**
     - A "Sign Out" button is present.
-    - This button is visible to authenticated users, determined by the `useAuth` hook (specifically, checking `!isSessionLoading && !!user`).
+    - This button is visible to authenticated users, determined by the `useAuth` hook.
 - **Form Submission & Server Action (`src/features/auth/actions/auth.actions.ts`):**
     - Clicking the "Sign Out" button (which is inside a `<form>`) triggers the `signOutUserAction` Server Action.
 - **Service Call (`src/features/auth/services/auth.service.ts`):**
@@ -119,24 +119,31 @@ Form submissions and auth operations are handled by **Server Actions** located i
 - **Redirection:**
     - Upon successful sign-out, the `signOutUserAction` redirects the user to the `/login` page.
 
-## II. Client-Side Authentication State (`useAuth` Hook)
+## II. Client-Side Authentication State (`useAuth` Hook) and Server-Side Prefetching
 
 Client components access authentication status, the raw Supabase user object, and detailed user profile information primarily through the **`useAuth` hook** (`src/features/auth/hooks/use-auth.ts`).
 
 This hook is the central point for UI components to understand the user's authentication status. It combines:
 1.  **Raw Session Data (from React Context):** The `AuthSessionProvider` (`@/providers/auth-session-provider.tsx`) uses React Context to provide the live Supabase `User` object and the session's initial loading status (`isSessionLoading`) and any session-related errors (`sessionError`). It relies on the `onAuthStateChange` listener for reactive updates.
-2.  **Detailed User Profile (from TanStack Query):** The `useUserProfileQuery` hook (`@/features/user-profile/hooks/use-user-profile-query.ts`) uses TanStack Query to fetch detailed user profile information from the `profiles` table via a Server Action.
+2.  **Detailed User Profile (from TanStack Query):** The `useUserProfileQuery` hook (`@/features/user-profile/hooks/use-user-profile-query.ts`) uses TanStack Query to fetch detailed user profile information from the `profiles` table via a Server Action (`getCurrentUserProfile` from `@/features/user-profile/queries`).
+
+**Server-Side Prefetching & Client-Side Hydration:**
+-   **For the Dashboard (`/src/app/(dashboard)/layout.tsx`):** This shared layout for dashboard routes is an `async` Server Component. It prefetches the `userProfile` for the authenticated user and passes this data to the client via `<HydrationBoundary>`.
+-   **For the Homepage (`/src/app/page.tsx`):** This page is also an `async` Server Component. If a user is authenticated when visiting the homepage, it attempts to prefetch their `userProfile` and passes it via `<HydrationBoundary>`.
+
+When client-side components (like `UserMenu` in the dashboard or `HeroHeader` on the homepage) initialize, `useAuth` calls `useUserProfileQuery`. TanStack Query, running on the client, will check if the data for the `userProfile` query key exists in the state hydrated from the server.
+-   If found (because prefetching was successful), `useUserProfileQuery` uses this hydrated data as its initial state. This makes the profile information available immediately, improving perceived performance.
+-   If not found (e.g., prefetch failed or user wasn't logged in during server render of homepage), `useUserProfileQuery` will proceed to fetch the data client-side by calling the `getCurrentUserProfile` Server Action.
+
+After initial hydration (or client-side fetch), TanStack Query manages the client-side caching, background updates, and stale-time for the profile data.
 
 The `useAuth` hook returns a comprehensive state object, including:
 *   `user`: The raw Supabase user object (or `null`).
 *   `profile`: The detailed `UserProfile` object (or `undefined` if not loaded/found).
-*   `authUser`: A combined object of `user` and `profile` data, available when the stricter `isAuthenticated` is true.
-*   `isAuthenticated`: A **stricter** boolean flag that is true only if a Supabase session exists (`!!user` is true, `isSessionLoading` is false) AND the detailed user profile has been successfully loaded (`!!profile` is true, `isProfileLoading` is false).
-*   `isLoadingAuth`: A composite boolean, true if `isSessionLoading` is true, OR if a session user exists (`!!user`) but the profile is still loading (`isProfileLoading`).
-*   `isSessionLoading`: A boolean indicating if the raw Supabase session is still being determined by `AuthSessionProvider`. Components use this for initial UI loading states (e.g., showing a spinner before login/logout buttons appear).
-*   `sessionError`: Any error from `AuthSessionProvider`.
-*   `isProfileLoading`: A boolean indicating if the detailed user profile is being fetched.
-*   `profileError`: Any error from `useUserProfileQuery`.
+*   `authUser`: A combined object of `user` and `profile` data.
+*   `isAuthenticated`: A stricter boolean flag (session AND profile loaded).
+*   `isLoadingAuth`: A composite loading state.
+*   `isSessionLoading`, `sessionError`, `isProfileLoading`, `profileError`.
 
 For more details on this setup, refer to `docs/integrating-state-and-data-fetching.md`.
 
@@ -152,8 +159,8 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - Cannot use React Hooks that rely on browser environment (e.g., `useState`, `useEffect`, `useContext`) or browser-only APIs (e.g., `window`, `localStorage`).
 - **In this project:**
     - Root layout (`src/app/layout.tsx`).
+    - Page components like `src/app/page.tsx` and `src/app/(dashboard)/layout.tsx` are `async` Server Components.
     - The auth layout `src/app/(auth)/layout.tsx`.
-    - Basic page shells in `src/app/(auth)/...` or `src/app/` that primarily render Client Components.
 
 ### `'use client'` Directive
 - **Purpose:** Marks a component and its imported child modules as **Client Components**.
@@ -164,9 +171,9 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
     - **Can use browser APIs** and handle user events.
 - **In this project:**
     - All form components in `src/features/auth/components/`.
-    - The `HomepageHeader` and related components in `src/features/homepage/components/hero-header/`.
+    - The `HomepageHeader` and `UserMenu` and their related UI components.
     - Provider components like `src/providers/auth-session-provider.tsx`, `src/providers/theme-provider.tsx`, and `src/providers/query-client-provider.tsx`.
-    - The `useAuth` hook in `src/features/auth/hooks/use-auth.ts`.
+    - Hooks like `useAuth` and `useUserProfileQuery`.
 
 ### `'use server'` Directive
 - **Purpose:** Marks functions exported from a file as **Server Actions** or indicates that a file exports Server Actions. These functions are guaranteed to execute only on the server.
@@ -203,7 +210,8 @@ The Next.js App Router introduces a paradigm where components are **Server Compo
 The project follows a feature-based organization within the `src` directory.
 
 - **`/src/app/`**:
-    - Global files (`layout.tsx`, `page.tsx` for homepage, `global-error.tsx` for App Router errors).
+    - Global files (`layout.tsx`, `global-error.tsx`).
+    - `page.tsx`: Root homepage, now an `async` Server Component with conditional profile prefetching.
     - **`(auth)/`**: Route group for authentication pages and related server logic.
         - `layout.tsx`: Shared two-column layout for auth pages.
         - `auth/confirm/route.ts`: Server-side handler for OTP verification.
@@ -211,116 +219,68 @@ The project follows a feature-based organization within the `src` directory.
         - `login/page.tsx`
         - `register/page.tsx`
         - `reset-password/page.tsx`
+    - **`(dashboard)/`**: Route group for dashboard pages.
+        - `layout.tsx`: Shared dashboard layout, now an `async` Server Component responsible for user profile prefetching.
+        - `dashboard/page.tsx`
+        - `dashboard/chat/page.tsx`
     - Page files are lean, importing main components from `src/features/.../components/`.
 - **`/src/features/`**:
     - **`auth/`**:
         - `components/`: Client Components for authentication forms.
         - `actions/`: Server Actions for auth data modification and flow control.
-            - `auth.actions.ts`
         - `services/`: Contains direct Supabase interaction logic.
-            - `auth.service.ts`
-        - `queries/`: Server Actions for auth-related data fetching (currently placeholder).
         - `schemas/`: Zod validation schemas.
-        - `hooks/`: Custom React hooks specific to authentication.
-            - `use-auth.ts`
-        - `utils/`: Utility functions specific to auth features.
-            - `middleware.utils.ts`
+        - `hooks/`: Custom React hooks specific to authentication (`use-auth.ts`).
+        - `utils/`: Utility functions specific to auth features (`middleware.utils.ts`).
     - **`user-profile/`**: Feature for user profile data.
         - `hooks/`: Custom hooks like `use-user-profile-query.ts`.
         - `queries/`: Server Actions for fetching profile data (`profile.queries.ts`).
         - `schemas/`: Zod schemas for profile data (`profile.schema.ts`).
         - `services/`: Services for profile data interaction (`profile.service.ts`).
     - **`homepage/`**: Components related to the main homepage.
-        - `components/` (contains `hero-header/`, `hero-content/`, etc.)
-- **`/src/components/`**:
-    *   `ui/`: Reusable ShadCN UI components.
-    *   `icons/`: Custom SVG icon components.
+    - **`dashboard/`**: Components and logic for the dashboard area.
+- **`/src/components/`**: Reusable UI components (ShadCN, custom icons).
 - **`/src/providers/`**: Global React context providers.
-    *   `auth-session-provider.tsx`
-    *   `theme-provider.tsx`
-    *   `query-client-provider.tsx`
-- **`/src/lib/`**:
-    *   `supabase/`: Supabase client initialization (`client.ts` for browser, `server.ts` for server-side).
-    *   `utils.ts`: General utility functions.
-    *   `logger/`: Winston logging configuration (`winston.config.ts`, `index.ts`).
-- **`/src/hooks/`**:
-    *   General-purpose custom React Hooks (e.g., `useToast`, `useIsMobile`).
-- **`/src/stores/`**:
-    *   `auth.store.ts`: Zustand store, now for minimal, non-auth related global client-side state.
-- **`/src/styles/`**:
-    *   `globals.css`: Global styles and Tailwind CSS theme.
+- **`/src/lib/`**: Core libraries (Supabase clients, utils, logger).
+- **`/src/hooks/`**: General-purpose custom React Hooks.
+- **`/src/stores/`**: Zustand store (for minimal, non-auth global client state).
+- **`/src/styles/`**: Global styles and Tailwind theme.
 - **`/src/middleware.ts`**: Next.js middleware entry point.
-- **`/src/instrumentation.ts`**: Next.js file for Sentry server-side initialization.
-- **`/src/instrumentation-client.ts`**: File for Sentry client-side initialization.
-- **Root Sentry Configs**: `sentry.server.config.ts`, `sentry.edge.config.ts` at project root.
+- **Sentry related files**: `instrumentation.ts`, `instrumentation-client.ts`, root Sentry configs.
 
 ## V. Separation of Concerns: Auth vs. User Profile
 
 A key architectural decision in this project is the separation of `src/features/auth` and `src/features/user-profile`. This is not duplication but a deliberate separation for clarity and scalability:
 
-*   **`src/features/auth/`** handles the *mechanisms* of authentication:
-    *   Processes like sign-up, sign-in, sign-out, password reset.
-    *   Manages session state via `AuthSessionProvider` (React Context for raw Supabase session).
-    *   Provides the primary `useAuth` hook which *aggregates* session state and profile state for easy UI consumption.
-    *   Contains Server Actions, services, and Zod schemas directly related to these authentication *processes*.
-
-*   **`src/features/user-profile/`** manages application-specific *user data*:
-    *   This concerns data typically stored in a separate `profiles` table (e.g., custom avatar, role, subscription details, language preferences).
-    *   Includes `useUserProfileQuery` (TanStack Query) for fetching this detailed profile data.
-    *   Contains the Server Action, service, and Zod schema specific to the `profiles` table data structure and its retrieval.
-
-**Why this separation?**
-
-1.  **Modularity**: If your user profile management becomes complex (e.g., profile editing forms, different visibility settings, profile-specific API endpoints), this logic is neatly contained and won't bloat the core authentication feature.
-2.  **Clarity**: It's clear where to find logic related to the `profiles` database table versus logic related to Supabase's `auth.users` table and authentication flows.
-3.  **Reusability**: Other features (e.g., an admin panel needing to display user profiles) could interact with services/queries from `src/features/user-profile/` without needing to depend on the core authentication mechanisms if only profile data is required.
-4.  **`useAuth` as an Aggregator**: The `useAuth` hook acts as a facade, providing a unified interface for components to get both the basic Supabase user (from session) and the detailed application profile, abstracting away where each piece of data originates.
-
-This structure ensures that the core identity management (auth) is distinct from the management of application-specific user data attributes (user-profile), leading to a more maintainable and scalable codebase.
+*   **`src/features/auth/`** handles the *mechanisms* of authentication.
+*   **`src/features/user-profile/`** manages application-specific *user data* (from the `profiles` table).
+The `useAuth` hook acts as an aggregator, providing a unified interface for components to get both the basic Supabase user (from session) and the detailed application profile.
 
 ## VI. Error Logging and Monitoring Strategy
 
-The application employs a robust error logging and monitoring strategy using Winston for server-side structured logging and Sentry for comprehensive error tracking across both client and server.
-
-*   **Server-Side Logging (`src/lib/logger/`):**
-    *   **Winston**: Used for detailed, structured logging in Server Actions, services, and API routes. `getServerLogger(moduleName)` provides contextualized logger instances.
-    *   **Sentry Integration**: Winston logs at `warn` and `error` levels are automatically sent to Sentry via `SentryWinstonTransport`, providing rich context for server-side issues.
-*   **Client-Side Error Monitoring:**
-    *   **Sentry (`@sentry/nextjs`)**: Initialized via `src/instrumentation-client.ts`.
-    *   Automatically captures unhandled JavaScript exceptions and promise rejections.
-    *   **Manual Capture**: Specific errors or significant events are manually captured using `Sentry.captureException(error)` or `Sentry.captureMessage("message")` in critical areas like `AuthSessionProvider`, the `useAuth` hook, and authentication form components to provide Sentry with more context.
-*   **Global Error Handling (App Router):**
-    *   `src/app/global-error.tsx` is used by Next.js to render a UI for unhandled errors in the App Router and is configured to report these errors to Sentry.
-*   **Configuration**: Sentry DSNs and other settings are managed via environment variables. Initialization is handled by `src/instrumentation.ts` (server/edge) and `src/instrumentation-client.ts` (client).
-
-For a detailed explanation of the logging and error monitoring setup, please refer to `docs/do_not_change_or_delete/future_plans/error logging.md`.
+The application employs a robust error logging and monitoring strategy using Winston for server-side structured logging and Sentry for comprehensive error tracking across both client and server. Refer to `docs/error logging.md` for details.
 
 ## VII. Adapting for Other Projects (Checklist)
 
 1.  **Supabase Configuration:**
     - [ ] Ensure your new project has `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 2.  **Sentry Configuration:**
-    - [ ] Update Sentry DSN, organization, and project details in `.env.local` (`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`) and ensure `SENTRY_AUTH_TOKEN` is set for source maps.
+    - [ ] Update Sentry DSN, organization, and project details in `.env.local` and ensure `SENTRY_AUTH_TOKEN` is set.
 3.  **Styling & UI:**
-    - [ ] Customize `src/styles/globals.css` (ShadCN theme) or replace UI components.
-    - [ ] Update `PassForgeLogo` or branding elements.
+    - [ ] Customize `src/styles/globals.css` or replace UI components.
 4.  **Redirection URLs:**
-    - [ ] Review and update `emailRedirectTo` URLs in `src/features/auth/actions/auth.actions.ts`.
-    - [ ] Adjust the `next` query parameter logic in `src/app/(auth)/auth/confirm/route.ts` if post-confirmation redirect paths differ.
-    - [ ] Update navigation links (e.g., post-login redirect in `signInWithPassword` Server Action, post-signout redirect in `signOutUserAction`).
-    - [ ] Review public paths in `src/features/auth/utils/middleware.utils.ts` for route protection.
+    - [ ] Review `emailRedirectTo` URLs and `next` query parameter logic.
+    - [ ] Update public paths in `src/features/auth/utils/middleware.utils.ts`.
 5.  **Error Handling Pages:**
-    - [ ] **Ensure a user-friendly page component exists for `/auth/auth-code-error`**.
+    - [ ] Ensure a user-friendly page component exists for `/auth/auth-code-error`.
 6.  **User Metadata & Profiles Table:**
-    - [ ] If collecting different data at registration, update schemas in `src/features/auth/schemas/register.schema.ts` and the `signUpNewUser` action.
-    - [ ] Ensure your `profiles` table in Supabase matches the schema in `src/features/user-profile/schemas/profile.schema.ts` and RLS policies are correctly set up.
-    - [ ] Adapt `src/features/user-profile/services/profile.service.ts` if your table structure or data merging logic differs.
+    - [ ] Align `profiles` table with `src/features/user-profile/schemas/profile.schema.ts`.
 7.  **Database Schema (RLS):**
-    - [ ] Configure Row Level Security (RLS) policies in your Supabase database for all user-specific data tables.
+    - [ ] Configure Row Level Security (RLS) policies.
 8.  **Review Site URL:**
-    - [ ] Ensure that the `origin` header (used in server actions for `emailRedirectTo`) or a reliable environment variable correctly reflects your deployed site's URL.
+    - [ ] Ensure correct site URL for email links.
 
 ## Conclusion
 
-This template provides a robust and well-structured foundation for implementing user authentication in a modern Next.js application using Supabase, React Context, and TanStack Query, with Zustand available for other global client state. It also incorporates a comprehensive error logging and monitoring setup with Winston and Sentry. By understanding the flow, the roles of `'use client'` and `'use server'`, the service-action pattern, and the project's organization, developers can confidently build upon and adapt this foundation.
-The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy, and `docs/do_not_change_or_delete/future_plans/error logging.md` details the logging strategy.
+This template provides a robust and well-structured foundation for implementing user authentication and server-side data prefetching in a modern Next.js application. By understanding the flow, the roles of Server/Client Components, and the project's organization, developers can confidently build upon this foundation.
+The accompanying `docs/integrating-state-and-data-fetching.md` guide provides further details on the state management strategy, and `docs/error logging.md` details the logging strategy.
