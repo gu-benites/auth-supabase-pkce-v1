@@ -1,3 +1,4 @@
+// src/features/dashboard/layout/dashboard-sidebar.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -39,6 +40,7 @@ type NavItem = {
 interface DashboardSidebarProps {
   onClose?: () => void; 
   collapsed?: boolean;
+  onUserMenuClick?: () => void; // Added to handle UserMenu interaction when sidebar is collapsed
 }
 
 // Updated NavItems to include Profile
@@ -49,8 +51,8 @@ const navItems: NavItem[] = [
     icon: <Home className="h-5 w-5" />,
   },
   {
-    title: "Profile", // Added Profile link
-    href: "/dashboard/profile",
+    title: "Profile", 
+    href: "/dashboard/profile", // Corrected path
     icon: <User className="h-5 w-5" />,
   },
   {
@@ -200,7 +202,7 @@ function MenuItem({
   );
 }
 
-export function DashboardSidebar({ onClose, collapsed = false }: DashboardSidebarProps) {
+export function DashboardSidebar({ onClose, collapsed = false, onUserMenuClick }: DashboardSidebarProps) {
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
@@ -251,7 +253,6 @@ export function DashboardSidebar({ onClose, collapsed = false }: DashboardSideba
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2 font-semibold group">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-              {/* Placeholder for PassForgeLogo if needed, or a simpler div */}
               <div className="h-4 w-4 rounded-sm bg-primary group-hover:scale-110 transition-transform" />
             </div>
             <span className="text-foreground group-hover:text-primary transition-colors">PassForge</span>
@@ -261,11 +262,10 @@ export function DashboardSidebar({ onClose, collapsed = false }: DashboardSideba
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose} // This toggles the sidebar's main state
+            onClick={onClose} 
             className="h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors"
             aria-label={collapsed ? "Open sidebar" : "Collapse sidebar"}
           >
-            {/* Use Menu when collapsed (to signify "expand"), PanelLeftClose when open (to signify "collapse") */}
             {collapsed ? <Menu className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
@@ -288,7 +288,7 @@ export function DashboardSidebar({ onClose, collapsed = false }: DashboardSideba
 
       <UserMenu
         collapsed={collapsed}
-        onRequestSidebarExpand={onClose} 
+        onRequestSidebarExpand={onUserMenuClick} 
         notificationCount={1}
       />
     </aside>

@@ -1,11 +1,11 @@
-// src/app/(dashboard)/profile/page.tsx
+// src/app/(dashboard)/dashboard/profile/page.tsx
 import { ProfileDisplay } from '@/features/user-profile/components';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-// User profile is already prefetched by the (dashboard)/layout.tsx
+// User profile is already prefetched by the (dashboard)/layout.tsx.
 // No need to call createClient() or prefetchQuery for profile here again.
 
 /**
- * Renders the user's profile page.
+ * Renders the user's profile page, accessible at /dashboard/profile.
  * The user profile data is expected to be prefetched by the parent (dashboard) layout
  * and made available via HydrationBoundary.
  *
@@ -13,7 +13,7 @@ import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query
  */
 export default async function ProfilePage(): Promise<JSX.Element> {
   const queryClient = new QueryClient();
-  // The actual prefetching of userProfile happens in (dashboard)/layout.tsx
+  // The actual prefetching of userProfile happens in (dashboard)/layout.tsx.
   // We still use HydrationBoundary here to ensure any dehydrated state from the layout
   // is correctly passed down and available for client-side hydration.
   // If this page had its *own* specific data to prefetch, it would be done here.

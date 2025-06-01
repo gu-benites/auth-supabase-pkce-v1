@@ -80,16 +80,16 @@ The core backend logic for fetching the user profile is already in place as per 
 ## VI. Step 4: Frontend - Page and Display Component
 
 ### A. Create the Profile Page Route
-**Create `src/app/(dashboard)/profile/page.tsx`:**
+**Create `src/app/(dashboard)/dashboard/profile/page.tsx`:** (Note the path change for nesting)
 ```tsx
-// src/app/(dashboard)/profile/page.tsx
+// src/app/(dashboard)/dashboard/profile/page.tsx
 import { ProfileDisplay } from '@/features/user-profile/components';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-// User profile is already prefetched by the (dashboard)/layout.tsx
+// User profile is already prefetched by the (dashboard)/layout.tsx.
 // No need to call createClient() or prefetchQuery for profile here again.
 
 /**
- * Renders the user's profile page.
+ * Renders the user's profile page, accessible at /dashboard/profile.
  * The user profile data is expected to be prefetched by the parent (dashboard) layout
  * and made available via HydrationBoundary.
  *
@@ -97,9 +97,10 @@ import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query
  */
 export default async function ProfilePage(): Promise<JSX.Element> {
   const queryClient = new QueryClient();
-  // The actual prefetching of userProfile happens in (dashboard)/layout.tsx
+  // The actual prefetching of userProfile happens in (dashboard)/layout.tsx.
   // We still use HydrationBoundary here to ensure any dehydrated state from the layout
   // is correctly passed down and available for client-side hydration.
+  // If this page had its *own* specific data to prefetch, it would be done here.
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
@@ -333,7 +334,7 @@ export * from './profile-display';
 Add links to the new profile page:
 
 1.  **In `src/features/dashboard/layout/user-menu.tsx`:**
-    *   Add "Profile" to `userMenuItems` array.
+    *   Add "Profile" to `userMenuItems` array, ensuring `href` is `/dashboard/profile`.
 
     ```tsx
     // src/features/dashboard/layout/user-menu.tsx
@@ -348,7 +349,7 @@ Add links to the new profile page:
       },
       {
         title: "Settings",
-        href: "/settings", // Adjust path if needed
+        href: "/settings", // Adjust path if needed, e.g., /dashboard/settings
         icon: <Settings className="h-5 w-5" />,
       },
       // ... other items
@@ -357,7 +358,7 @@ Add links to the new profile page:
     ```
 
 2.  **In `src/features/dashboard/layout/dashboard-sidebar.tsx`:**
-    *   Add "Profile" to `navItems` array.
+    *   Add "Profile" to `navItems` array, ensuring `href` is `/dashboard/profile`.
 
     ```tsx
     // src/features/dashboard/layout/dashboard-sidebar.tsx
@@ -373,7 +374,7 @@ Add links to the new profile page:
       {
         title: "Profile", // Added Profile link
         href: "/dashboard/profile",
-        icon: <User as UserIcon className="h-5 w-5" />,
+        icon: <UserIcon className="h-5 w-5" />, // UserIcon aliased if needed
       },
       // ... other items
     ];

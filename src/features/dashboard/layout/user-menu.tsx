@@ -1,3 +1,4 @@
+// src/features/dashboard/layout/user-menu.tsx
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -12,7 +13,7 @@ import {
   ChevronsUpDown,
   ChevronsDownUp,
   Loader2,
-  User as UserIcon // Added UserIcon for Profile link
+  User as UserIcon 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,8 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+  AlertDialogAction as AlertDialogConfirm // Renamed for clarity
+} from "@/components/ui/alert-dialog"; // Assuming AlertDialogAction is the confirm action
 import { Button } from "@/components/ui/button";
 
 
@@ -43,22 +45,22 @@ type UserMenuItemType = {
 const userMenuItems: UserMenuItemType[] = [
   {
     title: "Profile",
-    href: "/dashboard/profile", // Path to the new profile page
+    href: "/dashboard/profile", // Corrected path
     icon: <UserIcon className="h-5 w-5" />,
   },
   {
     title: "Settings",
-    href: "/settings",
+    href: "/settings", // This might need to be /dashboard/settings later
     icon: <Settings className="h-5 w-5" />,
   },
   {
     title: "Documentation",
-    href: "/docs",
+    href: "/docs", // Assuming global docs
     icon: <FileText className="h-5 w-5" />,
   },
   {
     title: "Support",
-    href: "/support",
+    href: "/support", // Assuming global support
     icon: <Headphones className="h-5 w-5" />,
   },
 ];
@@ -80,7 +82,6 @@ export function UserMenu({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  // console.log(`[${getTimestampLog()}] UserMenu (Client): Component rendered. Collapsed: ${collapsed}`);
 
   const {
     user, 
@@ -89,7 +90,6 @@ export function UserMenu({
     isSessionLoading,
     isProfileLoading,
   } = useAuth();
-  // console.log(`[${getTimestampLog()}] UserMenu (Client): From useAuth - user ID: ${user?.id}, profile exists: ${!!profile}, isLoadingAuth: ${isLoadingAuth}, isSessionLoading: ${isSessionLoading}, isProfileLoading: ${isProfileLoading}`);
 
   useEffect(() => {
     setMounted(true);
@@ -117,11 +117,9 @@ export function UserMenu({
 
   const toggleExpanded = () => {
     if (collapsed) {
-      // console.log(`[${getTimestampLog()}] UserMenu (Client): Sidebar collapsed, requesting expand.`);
       onRequestSidebarExpand?.();
       return;
     }
-    // console.log(`[${getTimestampLog()}] UserMenu (Client): Toggling menu expanded state. Was: ${expanded}, New: ${!expanded}`);
     setExpanded(!expanded);
   };
 
@@ -287,8 +285,7 @@ export function UserMenu({
                 type="submit"
                 variant="destructive"
                 onClick={() => {
-                  setShowLogoutConfirm(false); // Close dialog immediately
-                  // Form submission will handle the rest
+                  setShowLogoutConfirm(false); 
                 }}
               >
                 Log Out
