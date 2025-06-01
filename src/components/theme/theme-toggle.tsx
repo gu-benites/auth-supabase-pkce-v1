@@ -1,97 +1,109 @@
+
 "use client"
 
-import { useState, useEffect } from "react"
 import { Moon, Sun } from "lucide-react"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
 
 interface ThemeToggleProps {
   className?: string
 }
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== "undefined") {
-      return document.documentElement.classList.contains("dark");
-    }
-    return false;
-  });
+  const { setTheme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
+  // useEffect only runs on the client, so now we can safely show the UI
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDark]);
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    // To prevent hydration mismatch and layout shifts, render a placeholder.
+    // This div is styled to roughly match the dimensions of the actual toggle.
+    return <div className={cn("flex w-16 h-8 p-1 rounded-full bg-secondary border border-border animate-pulse", className)} />;
+  }
+
+  const isCurrentlyDark = resolvedTheme === "dark"
 
   const toggleTheme = () => {
-    setIsDark(prevIsDark => !prevIsDark);
-  };
+    setTheme(isCurrentlyDark ? "light" : "dark")
+  }
 
   return (
     <div
       className={cn(
-        "flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-300",
-        "bg-secondary border border-border",
+        "flex w-16 h-8 p-1 rounded-full cursor-pointer transition-colors duration-300 ease-in-out",
+        "bg-secondary border border-border hover:border-primary/50",
         className
       )}
       onClick={toggleTheme}
       role="button"
-      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      aria-pressed={isCurrentlyDark}
+      aria-label={`Switch to ${isCurrentlyDark ? 'light' : 'dark'} mode`}
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
           toggleTheme();
         }
       }}
     >
-      <div className="relative flex justify-between items-center w-full h-full">
+      <div className="relative flex items-center w-full h-full">
+        {/* Moving Knob */}
         <div
           className={cn(
-            "z-10 flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300",
-            "bg-primary",
-            isDark 
-              ? "transform translate-x-0" 
-              : "transform translate-x-8"
+            "z-10 flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300 ease-in-out",
+            "bg-primary shadow-md", 
+            isCurrentlyDark
+              ? "transform translate-x-8" // Knob on the right for dark mode
+              : "transform translate-x-0"  // Knob on the left for light mode
           )}
         >
-          {isDark ? (
-            <Moon 
-              className="w-4 h-4 text-primary-foreground" 
-              strokeWidth={1.5}
+          {isCurrentlyDark ? (
+            <Moon
+              className="w-4 h-4 text-primary-foreground"
+              strokeWidth={1.75}
               aria-hidden="true"
             />
           ) : (
-            <Sun 
-              className="w-4 h-4 text-primary-foreground" 
-              strokeWidth={1.5}
+            <Sun
+              className="w-4 h-4 text-primary-foreground"
+              strokeWidth={1.75}
               aria-hidden="true"
             />
           )}
         </div>
-        
+
+        {/* Static background icons */}
+        {/* Sun icon (always on the left) */}
         <div
           className={cn(
-            "absolute flex justify-center items-center w-6 h-6 rounded-full",
-            "top-1/2 -translate-y-1/2",
-            isDark 
-              ? "right-1 opacity-100"
-              : "left-1 opacity-100"
+            "absolute flex justify-center items-center w-6 h-6",
+            "top-1/2 -translate-y-1/2 left-[3px] transition-opacity duration-300", // Adjusted left padding for icon
+            !isCurrentlyDark ? "opacity-0" : "opacity-50" // Hidden when light, visible but dimmed when dark (knob covers it)
           )}
         >
-          {isDark ? (
-            <Sun 
+           <Sun
               className="w-4 h-4 text-secondary-foreground" 
               strokeWidth={1.5}
               aria-hidden="true"
             />
-          ) : (
-            <Moon 
-              className="w-4 h-4 text-secondary-foreground" 
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
+        </div>
+         {/* Moon icon (always on the right) */}
+        <div
+          className={cn(
+            "absolute flex justify-center items-center w-6 h-6",
+            "top-1/2 -translate-y-1/2 right-[3px] transition-opacity duration-300", // Adjusted right padding for icon
+            isCurrentlyDark ? "opacity-0" : "opacity-50" // Hidden when dark, visible but dimmed when light (knob covers it)
           )}
+        >
+            <Moon
+              className="w-4 h-4 text-secondary-foreground"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
         </div>
       </div>
     </div>
