@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -13,6 +12,7 @@ import {
   ChevronsUpDown,
   ChevronsDownUp,
   Loader2,
+  User as UserIcon // Added UserIcon for Profile link
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,18 @@ type UserMenuItemType = {
   icon: React.ReactNode;
 };
 
+// Updated User Menu Items to include Profile
 const userMenuItems: UserMenuItemType[] = [
+  {
+    title: "Profile",
+    href: "/dashboard/profile", // Path to the new profile page
+    icon: <UserIcon className="h-5 w-5" />,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: <Settings className="h-5 w-5" />,
+  },
   {
     title: "Documentation",
     href: "/docs",
@@ -49,11 +60,6 @@ const userMenuItems: UserMenuItemType[] = [
     title: "Support",
     href: "/support",
     icon: <Headphones className="h-5 w-5" />,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings className="h-5 w-5" />,
   },
 ];
 
@@ -79,6 +85,7 @@ export function UserMenu({
   const {
     user, 
     profile, 
+    isLoadingAuth,
     isSessionLoading,
     isProfileLoading,
   } = useAuth();
@@ -138,9 +145,8 @@ export function UserMenu({
   };
 
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
-
+  
   const isLoadingCoreData = !mounted || isSessionLoading || (user && isProfileLoading && !profile);
-  // console.log(`[${getTimestampLog()}] UserMenu (Client): isLoadingCoreData: ${isLoadingCoreData}. Mounted: ${mounted}, isSessionLoading: ${isSessionLoading}, User: ${!!user}, isProfileLoading: ${isProfileLoading}, Profile: ${!!profile}`);
 
 
   return (
@@ -276,7 +282,7 @@ export function UserMenu({
             <AlertDialogCancel onClick={() => setShowLogoutConfirm(false)}>
               Cancel
             </AlertDialogCancel>
-            <form action={signOutUserAction} className="inline-block">
+            <form action={signOutUserAction}>
               <Button
                 type="submit"
                 variant="destructive"
@@ -294,4 +300,3 @@ export function UserMenu({
     </>
   );
 }
-

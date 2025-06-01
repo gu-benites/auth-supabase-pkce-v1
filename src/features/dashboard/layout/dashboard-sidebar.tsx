@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,6 +16,7 @@ import {
   Search,
   Target,
   PanelLeftClose,
+  User // Added User icon for Profile
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,11 +37,11 @@ type NavItem = {
 };
 
 interface DashboardSidebarProps {
-  onClose?: () => void; // This toggles the sidebar's main open/collapsed state
-  collapsed?: boolean; // Is the sidebar in icon-only mode
-  // onUserMenuClick prop from DashboardSidebar is removed as UserMenu will use onRequestSidebarExpand
+  onClose?: () => void; 
+  collapsed?: boolean;
 }
 
+// Updated NavItems to include Profile
 const navItems: NavItem[] = [
   {
     title: "Dashboard",
@@ -49,19 +49,24 @@ const navItems: NavItem[] = [
     icon: <Home className="h-5 w-5" />,
   },
   {
+    title: "Profile", // Added Profile link
+    href: "/dashboard/profile",
+    icon: <User className="h-5 w-5" />,
+  },
+  {
     title: "Search",
-    href: "/search",
+    href: "/search", // Note: this path might need to be /dashboard/search if grouped
     icon: <Search className="h-5 w-5" />,
   },
   {
     title: "Chat",
     href: "/dashboard/chat",
     icon: <MessageSquare className="h-5 w-5" />,
-    badge: 3,
+    badge: 3, 
   },
   {
     title: "Reporting",
-    href: "/reporting",
+    href: "/reporting", // Note: this path might need to be /dashboard/reporting
     icon: <BarChart3 className="h-5 w-5" />,
     submenu: [
       { title: "Analytics", href: "/reporting/analytics" },
@@ -71,22 +76,22 @@ const navItems: NavItem[] = [
   },
   {
     title: "Check-ins",
-    href: "/check-ins",
+    href: "/check-ins", // Note: this path might need to be /dashboard/check-ins
     icon: <CheckCircle className="h-5 w-5" />,
   },
   {
     title: "Objectives",
-    href: "/objectives",
+    href: "/objectives", // Note: this path might need to be /dashboard/objectives
     icon: <Target className="h-5 w-5" />,
   },
   {
     title: "Career Hub",
-    href: "/career-hub",
+    href: "/career-hub", // Note: this path might need to be /dashboard/career-hub
     icon: <LayoutGrid className="h-5 w-5" />,
   },
   {
     title: "Mail",
-    href: "/mail",
+    href: "/mail", // Note: this path might need to be /dashboard/mail
     icon: <Mail className="h-5 w-5" />,
     submenu: [
       { title: "Inbox", href: "/mail/inbox" },
@@ -96,12 +101,12 @@ const navItems: NavItem[] = [
   },
   {
     title: "Kanban",
-    href: "/kanban",
+    href: "/kanban", // Note: this path might need to be /dashboard/kanban
     icon: <KanbanSquare className="h-5 w-5" />,
   },
   {
     title: "Tasks",
-    href: "/tasks",
+    href: "/tasks", // Note: this path might need to be /dashboard/tasks
     icon: <CheckCircle className="h-5 w-5" />,
     badge: 3,
   },
@@ -283,7 +288,7 @@ export function DashboardSidebar({ onClose, collapsed = false }: DashboardSideba
 
       <UserMenu
         collapsed={collapsed}
-        onRequestSidebarExpand={onClose} // Pass the sidebar's main toggle function
+        onRequestSidebarExpand={onClose} 
         notificationCount={1}
       />
     </aside>

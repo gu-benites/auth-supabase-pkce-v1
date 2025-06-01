@@ -1,4 +1,3 @@
-
 # Adding New Features: Example - User Profile Page
 
 This document guides you through adding a new feature to the PassForge application, using a "User Profile" page as an example. It assumes that the core authentication state management (React Context via `AuthSessionProvider` for raw session, TanStack Query via `useUserProfileQuery` for profile data, composed by the `useAuth` hook) has been integrated as described in `docs/integrating-state-and-data-fetching.md`.
@@ -20,7 +19,7 @@ Before proceeding, ensure you understand:
 *   The existing authentication flow and project structure (see `docs/project-overview.md`).
 *   How `AuthSessionProvider`, `useUserProfileQuery`, and the `useAuth` hook work together (see `docs/integrating-state-and-data-fetching.md`).
 *   The Next.js App Router, Server Components, and Client Components.
-*   The project's error logging and monitoring strategy (see `docs/do_not_change_or_delete/future_plans/error logging.md`).
+*   The project's error logging and monitoring strategy (see `docs/error logging.md`).
 
 ## III. Step 1: Planning the User Profile Feature
 
@@ -43,11 +42,11 @@ The profile page will display data defined by the `UserProfileSchema` (`@/featur
 *   Stripe and subscription-related fields
 *   `createdAt`, `updatedAt`
 
-This detailed schema is defined in `src/features/user-profile/schemas/profile.schema.ts` and aligns with the `profiles` table structure outlined in `docs/implementation-consultant.md`.
+This detailed schema is defined in `src/features/user-profile/schemas/profile.schema.ts` and aligns with the `profiles` table structure outlined in `docs/supabase-setup-guide.md` (or similar internal db schema documentation).
 
 ## IV. Step 2: Supabase Database Setup (Conceptual Review)
 
-Ensure your Supabase database has the `profiles` table as defined (or similar to the example in `docs/implementation-consultant.md`), with appropriate columns and Row Level Security (RLS) policies.
+Ensure your Supabase database has the `profiles` table as defined (or similar to the example in your database schema documentation), with appropriate columns and Row Level Security (RLS) policies.
 
 *   **`profiles` Table:** Should have `id` (referencing `auth.users.id`) and columns matching the `UserProfileSchema`.
 *   **RLS Policies:**
@@ -58,66 +57,54 @@ Ensure your Supabase database has the `profiles` table as defined (or similar to
 
 ## V. Step 3: Backend - Service and Query Action (Already Implemented)
 
-The core backend logic for fetching the user profile is already in place as per `docs/implementation-consultant.md`:
+The core backend logic for fetching the user profile is already in place as per `docs/integrating-state-and-data-fetching.md` and `docs/project-overview.md`:
 
 ### A. Zod Schema for Profile Data (`src/features/user-profile/schemas/profile.schema.ts`)
 *   This file defines `UserProfileSchema` and the `UserProfile` type. It should match your `profiles` table structure.
 
 ### B. Service Function to Fetch Profile Data (`src/features/user-profile/services/profile.service.ts`)
-*   The `getProfileByUserId(userId: string)` function:
+*   The `getProfileByUserId(userId: string, userEmail: string | null | undefined)` function:
     *   Is a Server Action (`'use server';`).
     *   Uses the server-side Supabase client.
-    *   Fetches data from the `profiles` table and `auth.users` (for email).
+    *   Fetches data from the `profiles` table and uses the provided `userEmail`.
     *   Merges this data to match the `UserProfileSchema`.
     *   Returns `{ data: UserProfile | null; error: Error | null }`.
 
 ### C. Server Action (Query Function for TanStack Query - `src/features/user-profile/queries/profile.queries.ts`)
 *   The `getCurrentUserProfile(): Promise<UserProfile>` Server Action:
-    *   Gets the authenticated user's ID.
-    *   Calls `getProfileByUserId`.
+    *   Gets the authenticated user's ID and email using `supabase.auth.getUser()`.
+    *   Calls `getProfileByUserId` with the user's ID and email.
     *   Validates the result against `UserProfileSchema`.
     *   Returns the `UserProfile` or throws an error. This is used by TanStack Query.
 
 ## VI. Step 4: Frontend - Page and Display Component
 
 ### A. Create the Profile Page Route
-**Create `src/app/profile/page.tsx` (if not already present or adapt if it exists):**
+**Create `src/app/(dashboard)/profile/page.tsx`:**
 ```tsx
-// src/app/profile/page.tsx
+// src/app/(dashboard)/profile/page.tsx
 import { ProfileDisplay } from '@/features/user-profile/components';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { getCurrentUserProfile } from '@/features/user-profile/queries';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server'; // For server-side auth check
+// User profile is already prefetched by the (dashboard)/layout.tsx
+// No need to call createClient() or prefetchQuery for profile here again.
 
-// This page should be protected. Middleware should handle redirection if not authenticated.
-// We add an additional check here for robustness.
-export default async function ProfilePage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    // This should ideally be caught by middleware, but good to have a fallback.
-    redirect('/login?message=Please log in to view your profile.');
-  }
-
+/**
+ * Renders the user's profile page.
+ * The user profile data is expected to be prefetched by the parent (dashboard) layout
+ * and made available via HydrationBoundary.
+ *
+ * @returns {Promise<JSX.Element>} The profile page component.
+ */
+export default async function ProfilePage(): Promise<JSX.Element> {
   const queryClient = new QueryClient();
-
-  // Optional: Prefetch data on the server for faster initial load
-  try {
-    await queryClient.prefetchQuery({
-      queryKey: ['userProfile', user.id],
-      queryFn: getCurrentUserProfile,
-    });
-  } catch (error) {
-    console.error("Failed to prefetch user profile:", error);
-    // Handle prefetch error, e.g. by not dehydrating or showing a generic error on client
-  }
+  // The actual prefetching of userProfile happens in (dashboard)/layout.tsx
+  // We still use HydrationBoundary here to ensure any dehydrated state from the layout
+  // is correctly passed down and available for client-side hydration.
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <main className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-6 text-foreground">Your Profile</h1>
+        {/* Title will be handled by DashboardHeader based on route */}
         <ProfileDisplay />
       </main>
     </HydrationBoundary>
@@ -126,69 +113,74 @@ export default async function ProfilePage() {
 ```
 
 ### B. Create the Profile Display Component
-This component uses the `useAuth` hook to get both the raw user and the detailed profile.
+This component uses the `useAuth` hook to get the detailed profile.
 
 **Create/Update `src/features/user-profile/components/profile-display.tsx`:**
 ```tsx
 // src/features/user-profile/components/profile-display.tsx
 'use client';
 
-import { useAuth } from '@/features/auth/hooks'; // The composite auth hook
+import { useAuth } from '@/features/auth/hooks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserCircle2 } from 'lucide-react';
-import * as Sentry from '@sentry/nextjs'; // Import Sentry
+import { UserCircle2, Mail, Info, ShieldCheck, Briefcase, CalendarDays, Languages, Edit3 } from 'lucide-react';
+import * as Sentry from '@sentry/nextjs';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
+/**
+ * Renders the display for the user's profile information.
+ * It uses the `useAuth` hook to get the user's session and profile data.
+ * Handles loading states, errors, and displays the profile details in a Card component.
+ */
 export function ProfileDisplay() {
-  // useAuth provides the composite state:
-  // user: raw Supabase user from AuthSessionProvider
-  // profile: detailed UserProfile from useUserProfileQuery (TanStack Query)
-  // authUser: combined user and profile when fully authenticated
-  // isAuthenticated: boolean (stricter: session AND profile loaded)
-  // isLoadingAuth: composite loading (session OR profile if authenticated)
-  // isSessionLoading: boolean for session provider's initial load
-  // sessionError: error from session provider
   const {
     user,
     profile,
-    // authUser, // Use this if you need combined object directly
-    isAuthenticated, // Use this to ensure profile is also loaded
-    isLoadingAuth, // Composite loading: session OR (session + profile)
-    isSessionLoading, // Use this for the initial "Am I logged in?" check
-    sessionError, // For session specific errors
-    profileError, // For profile specific errors
+    isLoadingAuth,
+    isSessionLoading,
+    sessionError,
+    profileError,
+    isAuthenticated,
   } = useAuth();
 
-  // Note: The useAuth hook already logs sessionError and profileError to Sentry.
-  // Additional Sentry logging can be added here for states specific to this component if needed.
+  const getInitials = () => {
+    if (!user && !profile) return <UserCircle2 size={24} />;
+    const first = profile?.firstName || (user?.user_metadata?.first_name as string)?.[0] || '';
+    const last = profile?.lastName || (user?.user_metadata?.last_name as string)?.[0] || '';
+    return `${first}${last}`.toUpperCase() || <UserCircle2 size={24} />;
+  };
+  
+  const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
+  const displayName = profile?.firstName || profile?.lastName 
+    ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+    : user?.email?.split('@')[0] || 'User Profile';
 
-  if (isSessionLoading) { // Show loading while session is being determined
+  if (isSessionLoading || (!profile && isLoadingAuth && user)) {
     return (
-      <Card className="w-full max-w-lg mx-auto animate-pulse">
-        <CardHeader>
-          <Skeleton className="h-8 w-3/4 mb-2" />
-          <Skeleton className="h-4 w-1/2" />
+      <Card className="w-full max-w-2xl mx-auto animate-pulse">
+        <CardHeader className="items-center text-center">
+          <Skeleton className="h-28 w-28 rounded-full mb-4" />
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-32" />
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <Skeleton className="h-24 w-24 rounded-full" />
-            <div className="space-y-2 flex-grow">
-              <Skeleton className="h-6 w-4/5" />
-              <Skeleton className="h-4 w-full" />
+        <CardContent className="space-y-6 p-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1"><Skeleton className="h-3 w-1/3" /><Skeleton className="h-6 w-2/3" /></div>
+              <div className="space-y-1"><Skeleton className="h-3 w-1/3" /><Skeleton className="h-6 w-2/3" /></div>
             </div>
-          </div>
-          {/* Add more skeleton elements as needed */}
+          ))}
         </CardContent>
       </Card>
     );
   }
 
   if (sessionError) {
-    // Error is already logged by useAuth. Display UI feedback.
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" className="max-w-2xl mx-auto">
         <AlertTitle>Session Error</AlertTitle>
         <AlertDescription>
           {sessionError.message || 'An error occurred while verifying your session.'}
@@ -199,7 +191,7 @@ export function ProfileDisplay() {
   
   if (!user && !isSessionLoading) { // User not logged in, session check complete
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" className="max-w-2xl mx-auto">
         <AlertTitle>Not Authenticated</AlertTitle>
         <AlertDescription>
           Please log in to view your profile. You may be redirected.
@@ -207,35 +199,10 @@ export function ProfileDisplay() {
       </Alert>
     );
   }
-
-  // At this point, session is resolved and user object exists.
-  // Now check profile-specific loading or errors, or if profile is ready (via isAuthenticated).
-  if (isLoadingAuth && user) { // Still loading profile data, or initial auth loading (which includes profile)
-     return (
-      <Card className="w-full max-w-lg mx-auto animate-pulse">
-        <CardHeader>
-          <Skeleton className="h-8 w-3/4 mb-2" />
-          <Skeleton className="h-4 w-1/2" />
-        </CardHeader>
-        <CardContent className="space-y-6">
-            <p className="text-muted-foreground">Loading profile details...</p>
-          {/* Skeletons for profile specific fields */}
-            <div className="flex items-center space-x-4">
-              <Skeleton className="h-24 w-24 rounded-full" />
-              <div className="space-y-2 flex-grow">
-                <Skeleton className="h-6 w-4/5" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-            </div>
-        </CardContent>
-      </Card>
-    );
-  }
   
   if (profileError && user) { // Check profileError if user session is valid
-    // Error is already logged by useAuth. Display UI feedback.
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" className="max-w-2xl mx-auto">
         <AlertTitle>Error Loading Profile Data</AlertTitle>
         <AlertDescription>
           {profileError.message || 'An unknown error occurred while fetching your profile details.'}
@@ -244,107 +211,100 @@ export function ProfileDisplay() {
     );
   }
 
-  if (!isAuthenticated && user) { // Session is valid, but profile isn't loaded (covered by isLoadingAuth or profileError usually)
-      // This state might indicate an issue if not covered by profileError. Log it.
-      Sentry.captureMessage('ProfileDisplay: User authenticated but profile data is missing without a profileError.', {
+  if (!profile && user && !isLoadingAuth) { // Session is valid, profile not loaded, not currently loading
+     Sentry.captureMessage('ProfileDisplay: User authenticated but profile data is missing and not loading.', {
         level: 'warning',
-        extra: { userId: user.id, profile, isLoadingAuth, isProfileLoading: profileError } // Corrected isProfileLoading to profileError context
+        extra: { userId: user.id, profile, isLoadingAuth, isProfileLoading: profileError?.message }
       });
-      return (
-          <Card className="w-full max-w-lg mx-auto">
-              <CardHeader>
-                  <CardTitle>Profile Not Yet Available</CardTitle>
-                  <CardDescription>Your profile details are being prepared or couldn't be loaded.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <p>Please try again shortly. If the issue persists, contact support.</p>
-              </CardContent>
-          </Card>
-      );
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader className="text-center">
+          <CardTitle>Profile Not Available</CardTitle>
+          <CardDescription>Your profile details could not be loaded at this time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Please try refreshing the page or contact support if the issue persists.</p>
+        </CardContent>
+      </Card>
+    );
   }
-
-  if (!profile) { // Fallback if none of the above caught it (should be rare with new useAuth logic)
-    Sentry.captureMessage('ProfileDisplay: Profile is unexpectedly null/undefined after loading checks.', {
+  
+  if (!profile || !user) { // Fallback if none of the above caught it
+    Sentry.captureMessage('ProfileDisplay: Profile or User is unexpectedly null/undefined after loading checks.', {
       level: 'error',
-      extra: { userId: user?.id, isAuthenticated, isLoadingAuth },
+      extra: { userId: user?.id, profileExists: !!profile, userExists: !!user, isAuthenticated, isLoadingAuth },
     });
-    return <p>Profile data not found. An unexpected issue occurred.</p>;
+    return (
+         <Alert variant="destructive" className="max-w-2xl mx-auto">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>An unexpected error occurred. Profile data cannot be displayed.</AlertDescription>
+        </Alert>
+    );
   }
 
-
-  // Helper to get initials for Avatar Fallback
-  const getInitials = (firstName?: string | null, lastName?: string | null) => {
-    const first = firstName?.[0] || '';
-    const last = lastName?.[0] || '';
-    return `${first}${last}`.toUpperCase() || <UserCircle2 size={24} />;
+  // Helper to render profile items
+  const ProfileDetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value?: string | number | null }) => {
+    if (!value) return null;
+    return (
+      <div className="flex items-start space-x-3">
+        <Icon className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+          <p className="text-foreground text-lg">{value}</p>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg">
-      <CardHeader className="text-center bg-muted/30 p-6 rounded-t-lg">
+    <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg overflow-hidden">
+      <CardHeader className="text-center bg-muted/30 p-8 rounded-t-lg relative">
+         <div className="absolute top-4 right-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard/profile/edit"> {/* Placeholder for edit page */}
+              <Edit3 className="h-4 w-4 mr-2" /> Edit Profile
+            </Link>
+          </Button>
+        </div>
         <div className="flex justify-center mb-4">
-          <Avatar className="h-28 w-28 text-4xl border-4 border-background shadow-md">
-            <AvatarImage src={profile.avatarUrl || undefined} alt={`${profile.firstName} ${profile.lastName}`} />
+          <Avatar className="h-32 w-32 text-5xl border-4 border-background shadow-lg">
+            <AvatarImage src={avatarUrl || undefined} alt={displayName} />
             <AvatarFallback className="bg-primary text-primary-foreground">
-                {getInitials(profile.firstName, profile.lastName)}
+                {getInitials()}
             </AvatarFallback>
           </Avatar>
         </div>
-        <CardTitle className="text-3xl font-bold">
-          {profile.firstName || profile.lastName ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : (user?.email || 'User Profile')}
-        </CardTitle>
+        <CardTitle className="text-4xl font-bold">{displayName}</CardTitle>
         <CardDescription className="text-md text-muted-foreground">
-            Role: {profile.role || 'user'}
+            Role: {profile.role || 'User'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-6 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</p>
-              <p className="text-foreground text-lg">{profile.email || 'Not available'}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">User ID</p>
-              <p className="text-foreground text-lg truncate">{profile.id}</p>
-            </div>
+      <CardContent className="p-6 md:p-8 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+          <ProfileDetailItem icon={Mail} label="Email" value={profile.email} />
+          <ProfileDetailItem icon={ShieldCheck} label="User ID" value={profile.id} />
         </div>
         
         {(profile.firstName || profile.lastName) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {profile.firstName && (
-                <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">First Name</p>
-                    <p className="text-foreground text-lg">{profile.firstName}</p>
-                </div>
-                )}
-                {profile.lastName && (
-                <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Last Name</p>
-                    <p className="text-foreground text-lg">{profile.lastName}</p>
-                </div>
-                )}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <ProfileDetailItem icon={UserCircle2} label="First Name" value={profile.firstName} />
+            <ProfileDetailItem icon={UserCircle2} label="Last Name" value={profile.lastName} />
+          </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {profile.language && (
-            <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Preferred Language</p>
-                <p className="text-foreground text-lg">{profile.language}</p>
-            </div>
-            )}
-            {profile.ageCategory && (
-            <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Age Category</p>
-                <p className="text-foreground text-lg">{profile.ageCategory}</p>
-            </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <ProfileDetailItem icon={Languages} label="Preferred Language" value={profile.language} />
+            <ProfileDetailItem icon={Info} label="Age Category" value={profile.ageCategory} />
         </div>
+        
+        {profile.specificAge && (
+            <ProfileDetailItem icon={Info} label="Specific Age" value={profile.specificAge} />
+        )}
 
         {profile.subscriptionStatus && (
-             <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Subscription Details</p>
-                <div className="p-4 bg-muted/50 rounded-md space-y-1">
+             <div className="space-y-3 pt-4 border-t border-border">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center"><Briefcase className="h-5 w-5 mr-2 text-primary"/>Subscription Details</h3>
+                <div className="p-4 bg-muted/50 rounded-md space-y-2">
                     <p className="text-sm"><span className="font-medium text-foreground">Status:</span> {profile.subscriptionStatus}</p>
                     {profile.subscriptionTier && <p className="text-sm"><span className="font-medium text-foreground">Tier:</span> {profile.subscriptionTier}</p>}
                     {profile.subscriptionPeriod && <p className="text-sm"><span className="font-medium text-foreground">Period:</span> {profile.subscriptionPeriod}</p>}
@@ -352,13 +312,17 @@ export function ProfileDisplay() {
                 </div>
             </div>
         )}
-         {/* Add more profile fields here as needed */}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-4 border-t border-border">
+          <ProfileDetailItem icon={CalendarDays} label="Profile Created" value={new Date(profile.createdAt).toLocaleDateString()} />
+          <ProfileDetailItem icon={CalendarDays} label="Last Updated" value={new Date(profile.updatedAt).toLocaleDateString()} />
+        </div>
       </CardContent>
     </Card>
   );
 }
 ```
-**Create `src/features/user-profile/components/index.ts` (Barrel File if not exists):**
+**Create `src/features/user-profile/components/index.ts` (Barrel File):**
 ```typescript
 // src/features/user-profile/components/index.ts
 export * from './profile-display';
@@ -366,41 +330,61 @@ export * from './profile-display';
 
 ## VII. Step 6: Navigation
 
-Add a link to the new profile page in a relevant navigation component (e.g., `src/features/homepage/components/hero-header/hero-header.tsx`):
+Add links to the new profile page:
 
-```tsx
-// Example modification in src/features/homepage/components/hero-header/hero-header.tsx
-// ... other imports
-import { useAuth } from '@/features/auth/hooks';
+1.  **In `src/features/dashboard/layout/user-menu.tsx`:**
+    *   Add "Profile" to `userMenuItems` array.
 
-export function HeroHeader() {
-  const { user, isSessionLoading } = useAuth(); // Get auth state
+    ```tsx
+    // src/features/dashboard/layout/user-menu.tsx
+    // ... other imports
+    import { User as UserIcon } from 'lucide-react'; // For profile icon
 
-  // Determine if basic session exists (user object is present and session check is complete)
-  const currentIsAuthenticated = !isSessionLoading && !!user;
+    const userMenuItems: UserMenuItemType[] = [
+      {
+        title: "Profile",
+        href: "/dashboard/profile", // Ensure this matches your route
+        icon: <UserIcon className="h-5 w-5" />,
+      },
+      {
+        title: "Settings",
+        href: "/settings", // Adjust path if needed
+        icon: <Settings className="h-5 w-5" />,
+      },
+      // ... other items
+    ];
+    // ... rest of the component
+    ```
 
+2.  **In `src/features/dashboard/layout/dashboard-sidebar.tsx`:**
+    *   Add "Profile" to `navItems` array.
 
-  return (
-    <header /* ... */ >
-      <nav /* ... */ >
-        {/* ... other nav items ... */}
-        {!isSessionLoading && currentIsAuthenticated && ( // Show if session is loaded and user exists
-            <Button variant="secondary" asChild size="sm">
-                <Link href="/profile">Profile</Link>
-            </Button>
-        )}
-        {/* ... other nav items ... */}
-      </nav>
-    </header>
-  );
-}
-```
+    ```tsx
+    // src/features/dashboard/layout/dashboard-sidebar.tsx
+    // ... other imports
+    import { User as UserIcon } from 'lucide-react'; // For profile icon
+
+    const navItems: NavItem[] = [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: <Home className="h-5 w-5" />,
+      },
+      {
+        title: "Profile", // Added Profile link
+        href: "/dashboard/profile",
+        icon: <User as UserIcon className="h-5 w-5" />,
+      },
+      // ... other items
+    ];
+    // ... rest of the component
+    ```
 
 ## VIII. Conclusion and Next Steps
 
-You've now outlined how to add a "User Profile" page that integrates with the established authentication architecture:
+You've now added a "User Profile" page that integrates with the established authentication architecture:
 *   Leveraging the `useAuth` hook for comprehensive auth state.
-*   Fetching detailed profile data via `useUserProfileQuery` (TanStack Query).
+*   Benefiting from server-side prefetching of profile data handled by the `(dashboard)/layout.tsx`.
 *   Displaying the information in a dedicated component.
 
 **Next Steps (Beyond this Guide):**
@@ -456,7 +440,7 @@ When developing new features, adhere to the project's established error handling
 
 **C. General Guidance:**
 
-*   Consult the main error logging documentation at `docs/do_not_change_or_delete/future_plans/error logging.md` for the complete strategy and more detailed explanations.
+*   Consult the main error logging documentation at `docs/error logging.md` for the complete strategy and more detailed explanations.
 *   Be mindful of PII: do not log sensitive user data unless absolutely necessary and properly secured/anonymized, especially in logs that might go to third-party services like Sentry.
 
 This guide provides a template for extending the application with new features in a structured and maintainable way, including robust error handling and logging.
