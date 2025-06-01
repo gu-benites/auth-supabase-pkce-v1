@@ -1,3 +1,4 @@
+
 // src/providers/auth-session-provider.tsx
 'use client';
 
@@ -33,22 +34,24 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    console.log(`[${getTimestamp()}] AuthSessionProvider: useEffect mounting. Setting up onAuthStateChange.`);
+    console.log(`[${getTimestamp()}] AuthSessionProvider (Client): useEffect mounting. Setting up onAuthStateChange.`);
 
     const { data: { subscription: authSubscription }, error: subscriptionErrorHook } = supabaseClient.auth.onAuthStateChange(
       (event, session) => {
-        if (!isMounted) return;
+        if (!isMounted) {
+          console.log(`[${getTimestamp()}] AuthSessionProvider (Client): onAuthStateChange received but component unmounted. Event: ${event}`);
+          return;
+        }
 
-        console.log(`[${getTimestamp()}] AuthSessionProvider: onAuthStateChange event:`, event, "Session user:", session?.user?.id);
+        console.log(`[${getTimestamp()}] AuthSessionProvider (Client): onAuthStateChange event: ${event}. Session user ID: ${session?.user?.id}. Current isLoading: ${isLoading}`);
         setUser(session?.user ?? null);
         
-        // Clear previous errors if a new valid session comes through or user signs out
         if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session) || event === 'SIGNED_OUT') {
             setError(null);
         }
 
-        // Log if INITIAL_SESSION comes with an error
         if (event === 'INITIAL_SESSION' && session?.user && (session as any).error) { // Supabase type for session doesn't include error directly, but it can appear
+          console.warn(`[${getTimestamp()}] AuthSessionProvider (Client): INITIAL_SESSION event included an error object for user ${session.user.id}. Error: ${(session as any).error?.message}`);
           Sentry.captureMessage('INITIAL_SESSION event included an error', {
             level: 'warning',
             extra: { 
@@ -59,17 +62,16 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
           });
         }
         
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-          if (isLoading && isMounted) { 
-            console.log(`[${getTimestamp()}] AuthSessionProvider: Setting isLoading to false due to auth event:`, event);
-            setIsLoading(false);
-          }
+        // Crucially, set isLoading to false *only if it's currently true* and a definitive event occurs
+        if (isLoading && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT')) {
+          console.log(`[${getTimestamp()}] AuthSessionProvider (Client): Setting isLoading to false due to auth event: ${event}.`);
+          setIsLoading(false);
         }
       }
     );
 
     if (subscriptionErrorHook) {
-        console.error(`[${getTimestamp()}] AuthSessionProvider: Error subscribing to onAuthStateChange:`, subscriptionErrorHook);
+        console.error(`[${getTimestamp()}] AuthSessionProvider (Client): Error subscribing to onAuthStateChange:`, subscriptionErrorHook);
         if (isMounted) {
             Sentry.captureMessage('Supabase onAuthStateChange subscription failed', {
               level: 'error',
@@ -79,13 +81,17 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
               },
             });
             setError(subscriptionErrorHook);
-            if (isLoading) setIsLoading(false); 
+            if (isLoading) {
+              console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): Setting isLoading to false due to subscription error.`);
+              setIsLoading(false); 
+            }
         }
     }
 
+    // Fallback timeout to ensure isLoading eventually becomes false
     const loadingFallbackTimeoutId = setTimeout(() => {
       if (isMounted && isLoading) { 
-        console.warn(`[${getTimestamp()}] AuthSessionProvider: isLoading fallback timeout. Forcing isLoading to false as no definitive auth event received.`);
+        console.warn(`[${getTimestamp()}] AuthSessionProvider (Client): isLoading fallback timeout. Forcing isLoading to false as no definitive auth event received in 3s.`);
         setIsLoading(false);
       }
     }, 3000); 
@@ -96,10 +102,11 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
       if (loadingFallbackTimeoutId) {
         clearTimeout(loadingFallbackTimeoutId);
       }
-      console.log(`[${getTimestamp()}] AuthSessionProvider: useEffect cleanup.`);
+      console.log(`[${getTimestamp()}] AuthSessionProvider (Client): useEffect cleanup. Unsubscribed from onAuthStateChange.`);
     };
-  }, [supabaseClient, isLoading]); 
+  }, [supabaseClient, isLoading]); // isLoading dependency is important here
 
+  console.log(`[${getTimestamp()}] AuthSessionProvider (Client): Rendering. isLoading: ${isLoading}, user ID: ${user?.id}`);
   return (
     <AuthSessionContext.Provider value={{ user, isLoading, error }}>
       {children}
@@ -112,5 +119,6 @@ export const useAuthSession = (): AuthSessionContextType => {
   if (context === undefined) {
     throw new Error('useAuthSession must be used within an AuthSessionProvider');
   }
+  // console.log(`[${getTimestamp()}] useAuthSession (Client): Context consumed. isLoading: ${context.isLoading}, user ID: ${context.user?.id}`);
   return context;
 };

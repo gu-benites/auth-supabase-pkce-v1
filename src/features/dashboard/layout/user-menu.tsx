@@ -12,7 +12,7 @@ import {
   UserCircle2,
   ChevronsUpDown,
   ChevronsDownUp,
-  Loader2,
+  Loader2, // Keep Loader2 if it's used for the overall loadingAuth state
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -51,22 +51,27 @@ interface UserMenuProps {
   notificationCount?: number;
   onRequestSidebarExpand?: () => void;
 }
+const getTimestampLog = () => new Date().toISOString();
 
 export function UserMenu({
   collapsed,
-  notificationCount = 0, // Default to 0 if not provided
+  notificationCount = 0,
   onRequestSidebarExpand,
 }: UserMenuProps) {
   const [expanded, setExpanded] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  console.log(`[${getTimestampLog()}] UserMenu (Client): Component rendered. Collapsed: ${collapsed}`);
 
   const {
-    user, // Raw Supabase user
-    profile, // Detailed UserProfile (initially from hydrated data)
-    isLoadingAuth, // Composite loading: true if session loading OR (session exists AND profile loading)
-    // isSessionLoading, // Use this for very initial UI if needed, but isLoadingAuth is more comprehensive
+    user, 
+    profile, 
+    isLoadingAuth,
+    // isSessionLoading, // We'll use isLoadingAuth primarily for UI readiness
+    // isProfileLoading,
   } = useAuth();
+  console.log(`[${getTimestampLog()}] UserMenu (Client): From useAuth - user ID: ${user?.id}, profile exists: ${!!profile}, isLoadingAuth: ${isLoadingAuth}`);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -90,9 +95,11 @@ export function UserMenu({
 
   const toggleExpanded = () => {
     if (collapsed) {
+      console.log(`[${getTimestampLog()}] UserMenu (Client): Sidebar collapsed, requesting expand.`);
       onRequestSidebarExpand?.();
       return;
     }
+    console.log(`[${getTimestampLog()}] UserMenu (Client): Toggling menu expanded state. Was: ${expanded}, New: ${!expanded}`);
     setExpanded(!expanded);
   };
 
@@ -117,6 +124,8 @@ export function UserMenu({
 
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
 
+  console.log(`[${getTimestampLog()}] UserMenu (Client): isLoadingAuth is ${isLoadingAuth}. Rendering decision point.`);
+
   return (
     <div className="mt-auto border-t p-4 relative" ref={menuRef}>
       <div
@@ -132,56 +141,59 @@ export function UserMenu({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpanded();}}
       >
         {isLoadingAuth ? (
-          <Skeleton className="h-9 w-9 rounded-full" />
-        ) : (
-          <div className="relative">
-            <Avatar className="h-9 w-9 text-sm">
-              <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {getInitials()}
-              </AvatarFallback>
-            </Avatar>
-            {notificationCount > 0 && !collapsed && (
-              <span className={cn(
-                "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
-                expanded && "opacity-0" // Hide badge when menu items are expanded
-              )}>
-                {notificationCount}
-              </span>
-            )}
-          </div>
-        )}
-        {!collapsed && (
           <>
-            <div className="flex-1 overflow-hidden">
-              {isLoadingAuth ? (
-                <>
+            {collapsed ? (
+              <Skeleton className="h-9 w-9 rounded-full" />
+            ) : (
+              <>
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <div className="flex-1 overflow-hidden">
                   <Skeleton className="h-4 w-24 mb-1" />
                   <Skeleton className="h-3 w-32" />
-                </>
-              ) : (
-                <>
+                </div>
+                 <span className="p-1.5 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                </span>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="relative">
+              <Avatar className="h-9 w-9 text-sm">
+                <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              {notificationCount > 0 && !collapsed && (
+                <span className={cn(
+                  "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
+                  expanded && "opacity-0" // Hide badge when menu items are expanded
+                )}>
+                  {notificationCount}
+                </span>
+              )}
+            </div>
+            {!collapsed && (
+              <>
+                <div className="flex-1 overflow-hidden">
                   <div className="font-medium truncate">{getDisplayName()}</div>
                   <div className="truncate text-xs text-muted-foreground">
                     {getEmailDisplay()}
                   </div>
-                </>
-              )}
-            </div>
-            {!isLoadingAuth && ( // Only show chevron if not loading
-                 <span className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
+                </div>
+                <span className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
                     {expanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
                 </span>
+              </>
             )}
           </>
-        )}
-         {collapsed && isLoadingAuth && ( // Show a small loader if sidebar collapsed and still loading
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         )}
       </div>
 
       <AnimatePresence>
-        {!collapsed && expanded && !isLoadingAuth && ( // Overlay only if sidebar not collapsed, menu expanded, and not loading auth
+        {!collapsed && expanded && !isLoadingAuth && ( 
           <motion.div
             initial={{ opacity: 0, y: 10, scale:0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -213,7 +225,7 @@ export function UserMenu({
                   className={cn(
                     "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10 justify-start"
                   )}
-                  onClick={() => setExpanded(false)} // Close overlay on click before submitting
+                  onClick={() => setExpanded(false)} 
                 >
                   <LogOut className="h-5 w-5" />
                   <span>Log out</span>

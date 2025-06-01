@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { getServerLogger } from '@/lib/logger';
 
 const logger = getServerLogger('DashboardLayout');
+const getTimestampLog = () => new Date().toISOString();
 
 /**
  * Shared layout for all routes within the (dashboard) group.
@@ -20,32 +21,44 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  console.log(`[${getTimestampLog()}] DashboardLayout (Server): Start`);
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  if (userError) {
+    logger.error('DashboardLayout (Server): Error fetching user from Supabase.', { error: userError.message });
+    // Decide how to handle this - redirect or show error page
+    redirect('/login?message=Session error, please log in again.');
+  }
 
   if (!user) {
-    // This should ideally be caught by middleware, but good to have a fallback.
-    logger.warn('No authenticated user found in dashboard layout. Redirecting to login.');
+    logger.warn('DashboardLayout (Server): No authenticated user found. Redirecting to login.');
     redirect('/login?message=Please log in to access the dashboard.');
   }
 
+  console.log(`[${getTimestampLog()}] DashboardLayout (Server): User ID: ${user.id}`);
   const queryClient = new QueryClient();
 
   try {
-    logger.info(`Prefetching user profile for user ID: ${user.id} in dashboard layout.`);
+    logger.info(`DashboardLayout (Server): PREFETCHING user profile for user ID: ${user.id}.`);
+    console.log(`[${getTimestampLog()}] DashboardLayout (Server): PREFETCHING user profile for user ID: ${user.id}.`);
     await queryClient.prefetchQuery({
       queryKey: ['userProfile', user.id],
-      queryFn: getCurrentUserProfile, // This is the server action
+      queryFn: getCurrentUserProfile,
     });
-    logger.info(`Successfully prefetched user profile for user ID: ${user.id}.`);
+    logger.info(`DashboardLayout (Server): SUCCESSFULLY PREFETCHED user profile for user ID: ${user.id}.`);
+    console.log(`[${getTimestampLog()}] DashboardLayout (Server): SUCCESSFULLY PREFETCHED user profile for user ID: ${user.id}.`);
   } catch (error) {
-    // Log the error but don't block rendering. The client-side useUserProfileQuery will attempt to fetch.
-    logger.error('Failed to prefetch user profile in dashboard layout.', { userId: user.id, error });
-    // Sentry.captureException(error, { extra: { context: 'DashboardLayout Prefetch', userId: user.id }}); // Optional: Send to Sentry
+    const castError = error instanceof Error ? error : new Error(String(error));
+    logger.error('DashboardLayout (Server): FAILED to prefetch user profile.', { userId: user.id, error: castError.message, stack: castError.stack });
+    console.error(`[${getTimestampLog()}] DashboardLayout (Server): FAILED to prefetch user profile for user ID: ${user.id}. Error: ${castError.message}`);
   }
 
+  const dehydratedState = dehydrate(queryClient);
+  console.log(`[${getTimestampLog()}] DashboardLayout (Server): Dehydrated state:`, JSON.stringify(dehydratedState, null, 2).substring(0, 500) + '...'); // Log snippet
+
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
+    <HydrationBoundary state={dehydratedState}>
       <DashboardLayoutComponent>{children}</DashboardLayoutComponent>
     </HydrationBoundary>
   );

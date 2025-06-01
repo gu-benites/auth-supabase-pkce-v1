@@ -1,3 +1,4 @@
+
 // src/features/auth/hooks/use-auth.ts
 'use client';
 
@@ -19,6 +20,7 @@ interface AuthState {
   isProfileLoading: boolean; // Specifically for profile data fetching
   profileError: Error | null; // Specifically for errors from profile data fetching
 }
+const getTimestampLog = () => new Date().toISOString();
 
 /**
  * The primary hook for accessing authentication state and user profile information.
@@ -29,11 +31,13 @@ interface AuthState {
  * @returns {AuthState} An AuthState object with granular loading and authentication states.
  */
 export const useAuth = (): AuthState => {
+  console.log(`[${getTimestampLog()}] useAuth (Client): Hook called.`);
   const { 
     user: sessionUser, 
     isLoading: currentIsSessionLoading, 
     error: currentSessionError 
   } = useAuthSession();
+  console.log(`[${getTimestampLog()}] useAuth (Client): From useAuthSession - sessionUser ID: ${sessionUser?.id}, isLoading: ${currentIsSessionLoading}, error: ${currentSessionError?.message}`);
   
   const { 
     profile: profileData, 
@@ -43,9 +47,12 @@ export const useAuth = (): AuthState => {
   } = useUserProfileQuery({
     userId: sessionUser?.id,
   });
+  console.log(`[${getTimestampLog()}] useAuth (Client): From useUserProfileQuery - profileData exists: ${!!profileData}, isLoading: ${currentIsProfileLoading}, isError: ${currentIsProfileError}, error: ${currentProfileErrorObj?.message}`);
+
 
   useEffect(() => {
     if (currentSessionError) {
+      console.error(`[${getTimestampLog()}] useAuth (Client): Session error detected.`, currentSessionError);
       Sentry.captureException(currentSessionError, {
         tags: { hook: 'useAuth', type: 'sessionLoading' },
         extra: { message: "Error from AuthSessionProvider" }
@@ -55,6 +62,7 @@ export const useAuth = (): AuthState => {
 
   useEffect(() => {
     if (currentProfileErrorObj && sessionUser) { // Only log profile errors if a user session was expected
+      console.error(`[${getTimestampLog()}] useAuth (Client): Profile error detected for user ${sessionUser.id}.`, currentProfileErrorObj);
       Sentry.captureException(currentProfileErrorObj, {
         tags: { hook: 'useAuth', type: 'profileLoading' },
         extra: { userId: sessionUser.id, message: "Error from useUserProfileQuery" },
@@ -64,6 +72,7 @@ export const useAuth = (): AuthState => {
 
   const hasValidSession = !!sessionUser && !currentIsSessionLoading && !currentSessionError;
   const isProfileReady = !!profileData && !currentIsProfileLoading && !currentIsProfileError;
+  
   const finalIsAuthenticated = hasValidSession && isProfileReady;
   const finalIsLoadingAuth = currentIsSessionLoading || (hasValidSession && currentIsProfileLoading);
 
@@ -77,6 +86,8 @@ export const useAuth = (): AuthState => {
     };
   }
   
+  console.log(`[${getTimestampLog()}] useAuth (Client): Derived states - finalIsAuthenticated: ${finalIsAuthenticated}, finalIsLoadingAuth: ${finalIsLoadingAuth}, authUser exists: ${!!finalAuthUser}`);
+
   return {
     user: sessionUser,
     profile: profileData,

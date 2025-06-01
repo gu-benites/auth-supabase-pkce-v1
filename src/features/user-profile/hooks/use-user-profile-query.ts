@@ -1,3 +1,4 @@
+
 // src/features/profile/hooks/use-user-profile-query.ts
 'use client';
 
@@ -10,6 +11,7 @@ interface UseUserProfileQueryOptions {
   // Pass null or undefined if no user is authenticated.
   userId: string | null | undefined; 
 }
+const getTimestampLog = () => new Date().toISOString();
 
 /**
  * Custom hook to fetch the current user's profile using TanStack Query.
@@ -29,16 +31,29 @@ export const useUserProfileQuery = (
   options: UseUserProfileQueryOptions,
 ): UseQueryResult<UserProfile, Error> & { profile?: UserProfile } => {
   const { userId } = options;
+  console.log(`[${getTimestampLog()}] useUserProfileQuery (Client): Hook called. userId: ${userId}, enabled: ${!!userId}`);
 
   const queryResult = useQuery<UserProfile, Error, UserProfile, (string | null | undefined)[]>({
     queryKey: ['userProfile', userId],
     queryFn: async () => {
-      // getCurrentUserProfile is a server action, safe to call directly
-      return getCurrentUserProfile();
+      console.log(`[${getTimestampLog()}] useUserProfileQuery (Client): queryFn executing for userId: ${userId}. Calling getCurrentUserProfile.`);
+      const profile = await getCurrentUserProfile();
+      console.log(`[${getTimestampLog()}] useUserProfileQuery (Client): queryFn received profile:`, profile ? 'Data received' : 'No data');
+      return profile;
     },
     enabled: !!userId, // Only run the query if userId is available
     staleTime: 1000 * 60 * 5, // Cache profile data for 5 minutes
     // Add other TanStack Query options as needed, e.g., gcTime, refetchOnWindowFocus
+  });
+
+  console.log(`[${getTimestampLog()}] useUserProfileQuery (Client): Query result for userId ${userId}:`, {
+    status: queryResult.status,
+    isLoading: queryResult.isLoading,
+    isFetching: queryResult.isFetching,
+    isSuccess: queryResult.isSuccess,
+    isStale: queryResult.isStale,
+    dataExists: !!queryResult.data,
+    error: queryResult.error?.message,
   });
 
   return {
