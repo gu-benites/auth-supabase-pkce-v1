@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/tabs';
 import { BarChart, CheckCircle, LineChart, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/features/auth/hooks'; // Import useAuth
+import { useAuth } from '@/features/auth/hooks'; 
+import { useEffect, useState } from 'react'; // Added for mounted state
 
 function LoadingCard() {
   return (
@@ -33,27 +34,38 @@ function LoadingCard() {
 }
 
 export function DashboardHomepageView() {
-  const { user, profile, isLoadingAuth } = useAuth();
+  const { user, profile, isLoadingAuth, sessionError } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getDisplayName = () => {
-    if (isLoadingAuth) return null; // Handled by skeleton
+    // This function is called when not showing skeletons, so isLoadingAuth is false.
+    // We rely on user and profile being populated.
     if (profile?.firstName) return profile.firstName;
     const userMetaFirstName = user?.user_metadata?.first_name as string | undefined;
     if (userMetaFirstName) return userMetaFirstName;
     if (user?.email) return user.email.split('@')[0];
-    return 'User';
+    return 'User'; // Fallback if user data is missing even after loading
   };
+  
+  // Refined condition to show skeletons:
+  // Show skeletons if not mounted yet, or if auth hook reports loading, 
+  // OR if auth hook is NOT loading but we don't have a user yet AND there's no session error.
+  const showSkeletons = !mounted || isLoadingAuth || (!user && !sessionError);
+  
+  const displayName = showSkeletons ? null : getDisplayName();
 
-  const displayName = getDisplayName();
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Updated Welcome Message Section */}
       <div className="mb-4">
-        {isLoadingAuth ? (
+        {showSkeletons ? (
           <>
-            <Skeleton className="h-10 w-3/4 sm:w-1/2 mb-2" /> {/* Skeleton for "Hello, Name!" */}
-            <Skeleton className="h-6 w-1/2 sm:w-1/3" />      {/* Skeleton for "Welcome back..." */}
+            <Skeleton className="h-10 w-3/4 sm:w-1/2 mb-2" /> 
+            <Skeleton className="h-6 w-1/2 sm:w-1/3" />      
           </>
         ) : (
           <>

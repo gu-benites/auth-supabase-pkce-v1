@@ -84,9 +84,8 @@ export function DashboardUserMenu({
   const {
     user, 
     profile, 
-    isLoadingAuth,
-    isSessionLoading,
-    isProfileLoading,
+    isLoadingAuth, // Composite loading: session OR (session exists AND profile is loading)
+    sessionError,  // Error from AuthSessionProvider
   } = useAuth();
 
   useEffect(() => {
@@ -126,7 +125,7 @@ export function DashboardUserMenu({
     const userMetaFirstName = user?.user_metadata?.first_name as string | undefined;
     if (userMetaFirstName) return userMetaFirstName;
     if (user?.email) return user.email.split('@')[0];
-    return "User";
+    return "User"; // Fallback, should ideally not be shown if data is truly loaded
   };
 
   const getEmailDisplay = () => {
@@ -142,7 +141,10 @@ export function DashboardUserMenu({
 
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
   
-  const isLoadingCoreData = !mounted || isSessionLoading || (user && isProfileLoading && !profile);
+  // Refined condition to show skeletons:
+  // Show skeletons if auth hook reports loading OR if auth hook is NOT loading but we don't have a user yet AND there's no session error.
+  // This latter part targets the phase where AuthSessionProvider's initial check is done (isLoading: false) but user is still null (before SIGNED_IN).
+  const showSkeletons = !mounted || isLoadingAuth || (!user && !sessionError);
 
 
   return (
@@ -161,23 +163,23 @@ export function DashboardUserMenu({
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpanded();}}
         >
           <div className="relative">
-           {isLoadingCoreData ? (
+           {showSkeletons ? (
              <Skeleton className="h-9 w-9 rounded-full" />
-           ) : user ? (
+           ) : user ? ( // Only render Avatar if user object is available
             <Avatar className="h-9 w-9 text-sm">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt={getDisplayName()} />}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {getInitials()}
                 </AvatarFallback>
             </Avatar>
-           ) : (
+           ) : ( // Fallback if not loading and no user (e.g., session error or truly not logged in)
             <Avatar className="h-9 w-9 text-sm">
                 <AvatarFallback className="bg-muted text-muted-foreground">
                     <UserCircle2 size={18} />
                 </AvatarFallback>
             </Avatar>
            )}
-            {notificationCount > 0 && !collapsed && !isLoadingCoreData && user && (
+            {notificationCount > 0 && !collapsed && !showSkeletons && user && (
               <span className={cn(
                 "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
                 expanded && "opacity-0" 
@@ -190,24 +192,24 @@ export function DashboardUserMenu({
           {!collapsed && (
             <>
               <div className="flex-1 overflow-hidden">
-                {isLoadingCoreData ? (
+                {showSkeletons ? (
                   <>
                     <Skeleton className="h-4 w-24 mb-1" />
                     <Skeleton className="h-3 w-32" />
                   </>
-                ) : user ? (
+                ) : user ? ( // Only render user details if user object is available
                   <>
                     <div className="font-medium truncate">{getDisplayName()}</div>
                     <div className="truncate text-xs text-muted-foreground">
                       {getEmailDisplay()}
                     </div>
                   </>
-                ) : (
+                ) : ( // Fallback if not loading and no user
                   <div className="font-medium truncate text-muted-foreground">Not Logged In</div>
                 )}
               </div>
               <span className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
-                {isLoadingCoreData ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                {showSkeletons ? <Loader2 className="h-4 w-4 animate-spin" /> : 
                   (expanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />)
                 }
               </span>
@@ -216,7 +218,7 @@ export function DashboardUserMenu({
         </div>
 
         <AnimatePresence>
-          {!collapsed && expanded && !isLoadingCoreData && user && ( 
+          {!collapsed && expanded && !showSkeletons && user && ( 
             <motion.div
               initial={{ opacity: 0, y: 10, scale:0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
