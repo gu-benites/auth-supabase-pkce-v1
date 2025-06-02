@@ -7,7 +7,7 @@ import {
   useContext,
   useEffect,
   useState,
-  useRef, // Added useRef
+  useRef,
   type ReactNode,
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -15,7 +15,7 @@ import * as Sentry from '@sentry/nextjs';
 
 interface AuthSessionContextType {
   user: User | null;
-  isLoading: boolean; // True until INITIAL_SESSION event (or timeout)
+  isLoading: boolean; // True until a definitive session state is known or timeout
   error: Error | null;
 }
 
@@ -23,39 +23,24 @@ const AuthSessionContext = createContext<AuthSessionContextType | undefined>(
   undefined,
 );
 
-// Assuming getTimestampLog is available or defined elsewhere in your actual file.
-// If not, define it here for logging:
 const getTimestampLog = () => new Date().toISOString(); 
 
 export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // True until INITIAL_SESSION is processed
+  const [isLoading, setIsLoading] = useState(true); 
   const [error, setError] = useState<Error | null>(null);
   const [supabaseClient] = useState(() => createClient());
 
-  // Ref to track mounted state to avoid state updates on unmounted component
   const isMountedRef = useRef(true);
-  // Ref to track if initial session event (or timeout) has processed and set isLoading to false
-  const initialSessionProcessedRef = useRef(false);
+  const initialSessionProcessedRef = useRef(false); // Tracks if INITIAL_SESSION event logic has run
 
   useEffect(() => {
-    // This effect runs once on mount to set up the listener
-    // and then on unmount to clean up.
     isMountedRef.current = true;
-    initialSessionProcessedRef.current = false; // Reset for potential fast refresh scenarios
+    initialSessionProcessedRef.current = false; 
     
-    // If isLoading is already false from a previous render (e.g. fast refresh retaining state),
-    // but we are re-subscribing, reset it to true to reflect new subscription attempt.
-    // However, with stable supabaseClient, this effect should run once.
-    // For robustness, explicitly set isLoading to true here if it wasn't already.
-    if (!isLoading) { // If isLoading was somehow false, reset it for this new subscription cycle
-        // console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): useEffect mounting, ensuring isLoading is true.`);
-        // setIsLoading(true); // This line might cause an infinite loop if isLoading is in deps, let's be careful
-                            // Better: rely on the initial useState(true) and ensure this effect runs once.
-    } else {
-        console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): useEffect mounting. Initial isLoading is true.`);
-    }
-
+    // This log helps see the state when the effect that sets up subscription runs.
+    // On initial mount, isLoading is true from useState.
+    console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): Subscribing to onAuthStateChange. Initial isLoading: ${isLoading}, User: ${user?.id}`);
 
     const { data: { subscription: authSubscription }, error: subscriptionErrorHook } = supabaseClient.auth.onAuthStateChange(
       (event, session) => {
@@ -64,7 +49,8 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): onAuthStateChange event: ${event}. Session user ID: ${session?.user?.id}. Current isLoading (ref): ${initialSessionProcessedRef.current}`);
+        // Use the `isLoading` state variable directly from the closure of this callback.
+        console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): onAuthStateChange event: ${event}. Session user ID: ${session?.user?.id}. Current isLoading state variable: ${isLoading}, initialSessionProcessedRef: ${initialSessionProcessedRef.current}`);
         
         setUser(session?.user ?? null);
         
@@ -78,15 +64,25 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
             extra: { userId: sessionWithError.user.id, sessionErrorName: detailedError?.name, sessionErrorMessage: detailedError?.message },
           });
         } else if (event !== 'USER_UPDATED' && event !== 'PASSWORD_RECOVERY' && event !== 'MFA_CHALLENGE_VERIFIED') {
-          // Clear error on major state changes like SIGNED_IN, SIGNED_OUT, INITIAL_SESSION (if no error in session)
           setError(null);
         }
         
         if (event === 'INITIAL_SESSION') {
-          if (!initialSessionProcessedRef.current) {
-            console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): INITIAL_SESSION received. Setting isLoading to false.`);
+          if (!initialSessionProcessedRef.current) { // Ensure this block runs only once per subscription lifecycle
+            if (session?.user) {
+              console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): INITIAL_SESSION received with user. Setting isLoading to false.`);
+              setIsLoading(false);
+            } else {
+              console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): INITIAL_SESSION received with NO user. isLoading remains true, awaiting timeout or subsequent event like SIGNED_IN.`);
+              // isLoading remains true, will be set to false by a subsequent event or the timeout.
+            }
+            initialSessionProcessedRef.current = true; 
+          }
+        } else if (isLoading) { // If a non-INITIAL_SESSION event occurs AND we are still in the initial loading phase
+          if (session?.user || event === 'SIGNED_OUT') { // Any event that definitively resolves session state
+            console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): Event ${event} received while still initial loading. Setting isLoading to false.`);
             setIsLoading(false);
-            initialSessionProcessedRef.current = true;
+            if (!initialSessionProcessedRef.current) initialSessionProcessedRef.current = true; // Should be true if INITIAL_SESSION already fired
           }
         }
       }
@@ -94,35 +90,33 @@ export const AuthSessionProvider = ({ children }: { children: ReactNode }) => {
 
     if (subscriptionErrorHook) {
         console.error(`[${getTimestampLog()}] AuthSessionProvider (Client): Error subscribing to onAuthStateChange:`, subscriptionErrorHook);
-        if (isMountedRef.current && !initialSessionProcessedRef.current) {
+        if (isMountedRef.current) { // Check mounted before setting state
             Sentry.captureMessage('Supabase onAuthStateChange subscription failed', {
               level: 'error',
               extra: { errorName: subscriptionErrorHook.name, errorMessage: subscriptionErrorHook.message },
             });
             setError(subscriptionErrorHook);
-            setIsLoading(false); 
-            initialSessionProcessedRef.current = true;
+            if (isLoading) setIsLoading(false); // If subscription fails, stop loading
+            initialSessionProcessedRef.current = true; // Mark initial processing as done/failed
         }
     }
 
-    // Fallback timeout: if INITIAL_SESSION hasn't processed and set isLoading to false within 3s.
     const loadingFallbackTimeoutId = setTimeout(() => {
-      if (isMountedRef.current && !initialSessionProcessedRef.current) { 
-        console.warn(`[${getTimestampLog()}] AuthSessionProvider (Client): isLoading fallback timeout (3s). Forcing isLoading to false as INITIAL_SESSION was not processed.`);
+      if (isMountedRef.current && isLoading) { 
+        console.warn(`[${getTimestampLog()}] AuthSessionProvider (Client): isLoading fallback timeout (3s). Forcing isLoading to false as initial session state not definitively resolved by an event with a user.`);
         setIsLoading(false);
-        initialSessionProcessedRef.current = true;
+        initialSessionProcessedRef.current = true; 
       }
     }, 3000); 
 
     return () => {
-      isMountedRef.current = false; // Set mounted to false on cleanup
+      isMountedRef.current = false; 
       authSubscription?.unsubscribe();
       clearTimeout(loadingFallbackTimeoutId);
       console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): useEffect cleanup. Unsubscribed from onAuthStateChange.`);
     };
-  }, [supabaseClient]); // Effect only depends on supabaseClient (which is stable)
+  }, [supabaseClient]); // Effect only depends on the stable supabaseClient
 
-  // The console log for rendering should reflect the current state values
   useEffect(() => {
     console.log(`[${getTimestampLog()}] AuthSessionProvider (Client): State update render. isLoading: ${isLoading}, user ID: ${user?.id}`);
   }, [isLoading, user]);
@@ -139,6 +133,5 @@ export const useAuthSession = (): AuthSessionContextType => {
   if (context === undefined) {
     throw new Error('useAuthSession must be used within an AuthSessionProvider');
   }
-  // console.log(`[${getTimestampLog()}] useAuthSession (Client): Context consumed. isLoading: ${context.isLoading}, user ID: ${context.user?.id}`);
   return context;
 };
