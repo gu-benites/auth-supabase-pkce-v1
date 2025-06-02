@@ -1,5 +1,7 @@
 // src/features/homepage/components/index.ts
 // This barrel file exports components from the 'src/features/homepage/components' directory.
-export * from './homepage-layout';
-// Do not export HeroSection from here if it's not in this directory.
-// Do not export sub-components like HeroHeader, HeroCanvasBackground, HeroContent if they are only used internally by HeroSection.
+// The old HomepageLayout component that was here is now obsolete and its export has been removed.
+// Add exports here if you create other reusable components within this directory.
+// For example:
+// export * from './hero-header/hero-header'; // If HeroHeader was meant to be exported directly
+// export * from './hero-content/hero-content'; // If HeroContent was meant to be exported

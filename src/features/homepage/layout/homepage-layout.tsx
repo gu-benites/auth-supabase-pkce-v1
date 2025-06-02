@@ -1,8 +1,9 @@
-// src/features/homepage/hero-section.tsx
+// src/features/homepage/layout/homepage-layout.tsx
+// This file was formerly src/features/homepage/hero-section.tsx
 import React from 'react';
-import HeroHeader from './components/hero-header/hero-header';
-import HeroCanvasBackground from './components/hero-canvas-background/hero-canvas-background';
-import HeroContent from './components/hero-content/hero-content';
+import HeroHeader from '../components/hero-header/hero-header';
+import HeroCanvasBackground from '../components/hero-canvas-background/hero-canvas-background';
+import HeroContent from '../components/hero-content/hero-content';
 
 /**
  * The main orchestrating component for the homepage.
@@ -11,7 +12,7 @@ import HeroContent from './components/hero-content/hero-content';
  *
  * @returns {JSX.Element} The complete hero section for the homepage.
  */
-export const HeroSection: React.FC = () => {
+export const HomepageLayout: React.FC = () => { // Renamed component to HomepageLayout
   return (
     <section className="relative bg-background text-muted-foreground min-h-screen flex flex-col overflow-x-hidden pt-[70px]"> {/* Adjusted pt if header height is 70px */}
       {/* Canvas Background - z-0 */}
