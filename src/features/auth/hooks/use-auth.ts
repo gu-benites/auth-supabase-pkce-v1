@@ -4,8 +4,8 @@
 
 import { useEffect } from 'react';
 import { useAuthSession } from '@/providers';
-import { useUserProfileQuery } from '@/features/user-profile/hooks/use-user-profile-query';
-import { type UserProfile } from '@/features/user-profile/schemas/profile.schema';
+import { useUserProfileQuery } from '@/features/user-auth-data/hooks/use-user-profile-query';
+import { type UserProfile } from '@/features/user-auth-data/schemas/profile.schema';
 import { type User } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 

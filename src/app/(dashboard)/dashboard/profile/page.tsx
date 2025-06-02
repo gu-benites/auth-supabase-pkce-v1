@@ -1,5 +1,5 @@
 // src/app/(dashboard)/dashboard/profile/page.tsx
-import { ProfileDisplay } from '@/features/user-profile/components';
+import { ProfileDisplay } from '@/features/user-auth-data/components';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 // User profile is already prefetched by the (dashboard)/layout.tsx.
 // No need to call createClient() or prefetchQuery for profile here again.
