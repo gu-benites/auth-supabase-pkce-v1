@@ -1,3 +1,4 @@
+
 // src/features/homepage/components/hero-header/hero-header.tsx
 "use client";
 
@@ -14,7 +15,7 @@ import { useAuth } from '@/features/auth/hooks';
 import { signOutUserAction } from '@/features/auth/actions';
 import { Button } from '@/components/ui/button';
 import { PassForgeLogo } from '@/components/icons';
-import { Loader2, UserCircle2 } from 'lucide-react';
+import { UserCircle2 } from 'lucide-react'; // Loader2 removed as skeletons handle loading state
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -46,16 +47,17 @@ const HeroHeader: React.FC = () => {
   const {
     user, 
     profile, 
-    isSessionLoading,
+    isSessionLoading, // This is true until AuthSessionProvider's initial check is done
     sessionError,
-    isLoadingAuth, // Composite loading: session OR (session exists AND profile is loading)
+    // isLoadingAuth is not used here directly, as isSessionLoading is more relevant for initial skeleton display
   } = useAuth();
 
-  // Refined condition to show skeletons:
-  // Show skeletons if not mounted, or if auth hook reports session loading,
-  // OR if session is not loading but we don't have a user yet AND there's no session error.
-  const showSkeletons = !mounted || isSessionLoading || (!user && !sessionError);
-  const currentIsAuthenticated = mounted && !!user && !sessionError; // User exists and no error
+  // Corrected condition for showing skeletons:
+  // Show skeletons if not mounted (initial client render) OR if the session is actively being loaded.
+  const showSkeletons = !mounted || isSessionLoading;
+
+  // Determine authentication status once loading is complete and component is mounted.
+  const currentIsAuthenticated = mounted && !!user && !sessionError;
 
   const handleDropdownEnter = (label: string) => {
     if (dropdownTimeoutRef.current) {
