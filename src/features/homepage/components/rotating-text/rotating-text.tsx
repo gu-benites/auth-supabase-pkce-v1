@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, {
@@ -12,7 +13,7 @@ import React, {
     type ComponentPropsWithoutRef,
 } from 'react';
 import { motion, AnimatePresence, type Transition, type Target, type VariantLabels, type AnimationControls, type TargetAndTransition } from 'framer-motion';
-import { cn } from '../../../../lib/utils';
+import { cn } from '@/lib/utils';
 
 export interface RotatingTextRef {
   next: () => void;
