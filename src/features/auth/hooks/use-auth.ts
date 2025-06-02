@@ -1,11 +1,10 @@
-
 // src/features/auth/hooks/use-auth.ts
 'use client';
 
 import { useEffect } from 'react';
 import { useAuthSession } from '@/providers';
-import { useUserProfileQuery } from '@/features/user-auth-data/hooks/use-user-profile-query';
-import { type UserProfile } from '@/features/user-auth-data/schemas/profile.schema';
+import { useUserProfileQuery } from '@/features/user-auth-data/hooks'; // Corrected path
+import { type UserProfile } from '@/features/user-auth-data/schemas'; // Corrected path
 import { type User } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 

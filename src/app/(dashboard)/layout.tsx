@@ -1,7 +1,7 @@
 
-import { DashboardLayout as DashboardLayoutComponent } from '@/features/dashboard/layout'; // Updated import to use barrel file
+import { DashboardLayout as DashboardLayoutComponent } from '@/features/dashboard/layout';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { getCurrentUserProfile } from '@/features/user-auth-data/queries';
+import { getCurrentUserProfile } from '@/features/user-core-data/queries'; // Updated import path
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getServerLogger } from '@/lib/logger';

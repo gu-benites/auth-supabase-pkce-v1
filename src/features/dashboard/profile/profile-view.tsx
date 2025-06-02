@@ -1,4 +1,4 @@
-// src/features/user-profile/components/profile-display.tsx
+// src/features/dashboard/profile/profile-view.tsx
 'use client';
 
 import { useAuth } from '@/features/auth/hooks';
@@ -15,8 +15,9 @@ import Link from 'next/link';
  * Renders the display for the user's profile information.
  * It uses the `useAuth` hook to get the user's session and profile data.
  * Handles loading states, errors, and displays the profile details in a Card component.
+ * This component is now located within the dashboard-specific profile feature.
  */
-export function ProfileDisplay() {
+export function ProfileView() {
   const {
     user,
     profile,
@@ -70,7 +71,7 @@ export function ProfileDisplay() {
     );
   }
   
-  if (!user && !isSessionLoading) {
+  if (!user && !isSessionLoading) { // User not logged in, session check complete
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto">
         <AlertTitle>Not Authenticated</AlertTitle>
@@ -81,7 +82,7 @@ export function ProfileDisplay() {
     );
   }
   
-  if (profileError && user) {
+  if (profileError && user) { // Check profileError if user session is valid
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto">
         <AlertTitle>Error Loading Profile Data</AlertTitle>
@@ -92,8 +93,8 @@ export function ProfileDisplay() {
     );
   }
 
-  if (!profile && user && !isLoadingAuth) {
-     Sentry.captureMessage('ProfileDisplay: User authenticated but profile data is missing and not loading.', {
+  if (!profile && user && !isLoadingAuth) { // Session is valid, profile not loaded, not currently loading
+     Sentry.captureMessage('ProfileView: User authenticated but profile data is missing and not loading.', {
         level: 'warning',
         extra: { userId: user.id, profile, isLoadingAuth, isProfileLoading: profileError?.message }
       });
@@ -110,8 +111,8 @@ export function ProfileDisplay() {
     );
   }
   
-  if (!profile || !user) {
-     Sentry.captureMessage('ProfileDisplay: Profile or User is unexpectedly null/undefined after loading checks.', {
+  if (!profile || !user) { // Fallback if none of the above caught it
+    Sentry.captureMessage('ProfileView: Profile or User is unexpectedly null/undefined after loading checks.', {
       level: 'error',
       extra: { userId: user?.id, profileExists: !!profile, userExists: !!user, isAuthenticated, isLoadingAuth },
     });

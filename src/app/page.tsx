@@ -1,7 +1,7 @@
 // src/app/page.tsx
 import { HomepageLayout } from '@/features/homepage/components';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { getCurrentUserProfile } from '@/features/user-auth-data/queries';
+import { getCurrentUserProfile } from '@/features/user-auth-data/queries'; // Corrected import path
 import { createClient } from '@/lib/supabase/server';
 import { getServerLogger } from '@/lib/logger';
 
