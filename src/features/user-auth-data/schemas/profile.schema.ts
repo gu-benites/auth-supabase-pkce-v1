@@ -1,6 +1,8 @@
 // src/features/profile/schemas/profile.schema.ts
 import { z } from 'zod';
 
+const MAX_BIO_LENGTH = 180;
+
 export const UserProfileSchema = z.object({
   id: z.string().uuid().describe("User's unique identifier, matches auth.users.id"),
   email: z.string().email().optional().nullable().describe("User's email address from auth.users"),
@@ -11,6 +13,8 @@ export const UserProfileSchema = z.object({
   specificAge: z.number().int().optional().nullable().describe("User's specific age"),
   language: z.string().optional().nullable().default('en').describe("User's preferred language, defaults to 'en'"),
   avatarUrl: z.string().url().optional().nullable().describe("URL of the user's avatar image"),
+  bannerUrl: z.string().url().optional().nullable().describe("URL for the user's profile banner image"),
+  bio: z.string().max(MAX_BIO_LENGTH, `Biography must be ${MAX_BIO_LENGTH} characters or less.`).optional().nullable().describe("User's biography"),
   role: z.enum(['user', 'premium', 'admin']).default('user').describe("User's role within the application"),
   stripeCustomerId: z.string().optional().nullable().describe("User's Stripe customer ID, if applicable"),
   subscriptionStatus: z.string().optional().nullable().describe("Status of the user's subscription"),
