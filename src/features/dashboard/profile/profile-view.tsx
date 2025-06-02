@@ -3,12 +3,12 @@
 'use client';
 
 import React, { useEffect, useId, useState, useCallback } from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, Controller } from 'react-hook-form'; // Added Controller
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/features/auth/hooks';
 import { UserProfileSchema, type UserProfile } from '@/features/user-auth-data/schemas';
-import { useCharacterLimit, useImageUpload } from '@/hooks';
+import { useCharacterLimit, useImageUpload } from '@/hooks'; // Corrected path to global hooks
 import { updateUserProfile } from '@/features/user-auth-data/actions';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -39,13 +39,14 @@ type ProfileFormValues = UserProfile & {
 const ProfileFormSchema = UserProfileSchema.extend({
     avatarDataUri: z.string().optional().nullable(),
     bannerDataUri: z.string().optional().nullable(),
+    // Ensure other fields from UserProfileSchema are correctly part of this or the base
 });
 
 
 const ProfileBannerUploader: React.FC<{
-  control: any;
-  name: string;
-  defaultImage?: string | null;
+  control: any; // react-hook-form control object
+  name: string; // Name of the form field for the banner data URI
+  defaultImage?: string | null; // URL of the existing banner image
   disabled?: boolean;
 }> = ({ control, name, defaultImage, disabled }) => {
   const { toast } = useToast();
@@ -62,15 +63,17 @@ const ProfileBannerUploader: React.FC<{
       if (disabled) return;
       if (file && file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({ title: "Image too large", description: "Banner image must be less than 5MB.", variant: "destructive" });
-        handleBannerRemoveVisuals();
-        control.setValue(name, null, { shouldDirty: true });
+        handleBannerRemoveVisuals(); // Clear the faulty preview
+        control.setValue(name, null, { shouldDirty: true }); // Clear form value
         return;
       }
       control.setValue(name, dataUrl, { shouldDirty: true, shouldValidate: true });
     }
   });
 
-  useEffect(() => {
+  // Effect to sync the preview URL if defaultImage prop changes (e.g., after profile re-fetch)
+   useEffect(() => {
+    // Only update if defaultImage is different and current preview isn't a fresh blob
     if (defaultImage !== bannerPreview && !(bannerPreview && bannerPreview.startsWith('blob:'))) {
        setBannerPreviewUrlDirectly(defaultImage || null);
     }
@@ -83,8 +86,8 @@ const ProfileBannerUploader: React.FC<{
     <Controller
       name={name}
       control={control}
-      defaultValue={null}
-      render={({ field }) => (
+      defaultValue={null} // Default to null for the DataURI field
+      render={({ field }) => ( // field.onChange will be called by useImageUpload's onUpload
         <div className="h-32 sm:h-40 md:h-48 bg-muted relative group rounded-t-lg overflow-hidden">
           {currentImage ? (
             <img
@@ -94,7 +97,7 @@ const ProfileBannerUploader: React.FC<{
               data-ai-hint="abstract banner"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5" data-ai-hint="abstract gradient pattern">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5" data-ai-hint="abstract pattern gradient">
               <ImagePlus className="w-10 h-10 text-muted-foreground/40" />
             </div>
           )}
@@ -122,8 +125,8 @@ const ProfileBannerUploader: React.FC<{
                   size="icon"
                   className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
                   onClick={() => {
-                    handleBannerRemoveVisuals();
-                    field.onChange(null);
+                    handleBannerRemoveVisuals(); // Clears client-side preview
+                    field.onChange(null); // Updates react-hook-form state
                   }}
                   aria-label="Remove banner image"
                   disabled={disabled}
@@ -137,11 +140,11 @@ const ProfileBannerUploader: React.FC<{
             type="file"
             ref={bannerFileInputRef}
             onChange={(e) => {
-              handleBannerFileChange(e);
+              handleBannerFileChange(e); // This calls onUpload which calls field.onChange
             }}
             className="hidden"
             accept="image/png, image/jpeg, image/webp"
-            id={`${name}-input`}
+            id={`${name}-input`} // Ensure unique ID if multiple instances
             disabled={disabled}
           />
         </div>
@@ -152,9 +155,9 @@ const ProfileBannerUploader: React.FC<{
 
 
 const ProfileAvatarUploader: React.FC<{
-  control: any;
-  name: string;
-  defaultImage?: string | null;
+  control: any; // react-hook-form control object
+  name: string; // Name of the form field for the avatar data URI
+  defaultImage?: string | null; // URL of the existing avatar
   displayName?: string;
   getInitialsFn: () => React.ReactNode;
   disabled?: boolean;
@@ -169,19 +172,19 @@ const ProfileAvatarUploader: React.FC<{
     setPreviewUrlDirectly: setAvatarPreviewUrlDirectly,
   } = useImageUpload({
     initialPreviewUrl: defaultImage,
-    onUpload: (file, dataUrl) => {
+    onUpload: (file, dataUrl) => { // dataUrl is the blob URI
       if (disabled) return;
        if (file && file.size > 2 * 1024 * 1024) { // 2MB limit
         toast({ title: "Image too large", description: "Avatar image must be less than 2MB.", variant: "destructive" });
-        handleAvatarRemoveVisuals();
-        control.setValue(name, null, { shouldDirty: true });
+        handleAvatarRemoveVisuals(); // Clear the faulty preview
+        control.setValue(name, null, { shouldDirty: true }); // Clear form value
         return;
       }
-      control.setValue(name, dataUrl, { shouldDirty: true, shouldValidate: true });
+      control.setValue(name, dataUrl, { shouldDirty: true, shouldValidate: true }); // Store blob URI
     }
   });
 
-  useEffect(() => {
+   useEffect(() => {
      if (defaultImage !== avatarPreview && !(avatarPreview && avatarPreview.startsWith('blob:'))) {
         setAvatarPreviewUrlDirectly(defaultImage || null);
      }
@@ -193,8 +196,8 @@ const ProfileAvatarUploader: React.FC<{
     <Controller
       name={name}
       control={control}
-      defaultValue={null}
-      render={({ field }) => (
+      defaultValue={null} // Default to null for the DataURI field
+      render={({ field }) => ( // field.onChange will be called by useImageUpload's onUpload
         <div className="relative -mt-10 sm:-mt-12 flex justify-center">
           <ShadcnAvatar className="h-20 w-20 sm:h-24 sm:w-24 text-3xl border-4 border-background bg-muted shadow-md group">
             <AvatarImage src={currentAvatarSrc || undefined} alt={displayName} />
@@ -218,11 +221,11 @@ const ProfileAvatarUploader: React.FC<{
             type="file"
             ref={avatarFileInputRef}
             onChange={(e) => {
-              handleAvatarFileChange(e);
+                handleAvatarFileChange(e); // This calls onUpload which calls field.onChange
             }}
             className="hidden"
             accept="image/png, image/jpeg, image/webp"
-            id={`${name}-input`}
+            id={`${name}-input`} // Ensure unique ID
             disabled={disabled}
           />
         </div>
@@ -238,30 +241,31 @@ export function ProfileView() {
   const {
     user,
     profile,
-    isLoadingAuth, // This is the composite loading: session OR profile
-    isSessionLoading, // Specific to AuthSessionProvider
+    isLoadingAuth,
+    isSessionLoading,
     sessionError,
-    profileError, // Specific to useUserProfileQuery
+    profileError,
   } = useAuth();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
-    defaultValues: profile || {},
+    defaultValues: profile || {}, // Initialize with fetched profile or empty object
   });
 
   const bioFormValue = form.watch('bio');
   const {
-    value: bioDisplayValue,
+    value: bioDisplayValue, // This is the value managed by useCharacterLimit
     characterCount: bioCharacterCount,
-    handleChange: handleBioChangeInternal,
-    updateValue: updateBioDisplayValue,
+    handleChange: handleBioChangeInternal, // Internal handler for useCharacterLimit's textarea
+    updateValue: updateBioDisplayValue, // To programmatically set useCharacterLimit's value
     maxLength: bioMaxLength,
   } = useCharacterLimit({
     maxLength: MAX_BIO_LENGTH,
     initialValue: profile?.bio || "",
   });
 
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false); // For optimistic UI, separate from mutation's pending
+  // Separate state for optimistic UI during submission, can be driven by mutation.isPending
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   const mutation = useMutation({
     mutationFn: updateUserProfile,
@@ -277,7 +281,19 @@ export function ProfileView() {
       } else if (result.data) {
         toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
         queryClient.invalidateQueries({ queryKey: ['userProfile', user?.id] });
-        form.reset(result.data, { keepValues: true, keepDirty: false, keepDefaultValues: false });
+        
+        // Reset form with new data, but keep current preview URIs if they were just uploaded
+        // The server action for now only returns text fields
+        const currentPreviews = {
+            avatarDataUri: form.getValues('avatarDataUri'),
+            bannerDataUri: form.getValues('bannerDataUri'),
+        };
+        form.reset({
+            ...result.data, // This is the updated text data from server
+            avatarDataUri: currentPreviews.avatarDataUri, // Preserve client-side preview if it exists
+            bannerDataUri: currentPreviews.bannerDataUri,
+        }, { keepValues: false, keepDirty: false, keepDefaultValues: false });
+
         updateBioDisplayValue(result.data.bio || ""); // Sync useCharacterLimit hook
       } else {
         toast({ title: "Update Incomplete", description: "Profile update returned no data.", variant: "destructive" });
@@ -296,28 +312,32 @@ export function ProfileView() {
   });
 
 
+  // Effect to reset form when profile data changes (e.g., after initial load or re-fetch)
   useEffect(() => {
     if (profile) {
+      // Ensure all fields from schema are present for reset, defaulting to null for data URIs
       const defaultValuesWithNulls = {
         ...UserProfileSchema.parse(profile), // Ensure all fields from schema are present
-        avatarDataUri: null,
+        avatarDataUri: null, // These are client-side temporary previews
         bannerDataUri: null,
       };
       form.reset(defaultValuesWithNulls);
-      updateBioDisplayValue(profile.bio || "");
-    } else if (user && !isLoadingAuth) { // If user exists but no profile (e.g., new user)
+      updateBioDisplayValue(profile.bio || ""); // Sync character limit hook
+    } else if (user && !isLoadingAuth && !profileError) { // If user exists but no profile yet (e.g. new user)
+        // Initialize form with some defaults from user object for a better UX
         form.reset({
             id: user.id,
             email: user.email,
             firstName: (user.user_metadata?.first_name as string) || "",
             lastName: (user.user_metadata?.last_name as string) || "",
             avatarUrl: (user.user_metadata?.avatar_url as string) || null,
+            // Other fields from UserProfileSchema should default to Zod defaults or null/undefined
             bannerUrl: null,
             bio: "",
-            language: "en",
+            language: "en", // default from schema
             ageCategory: null,
             specificAge: null,
-            role: 'user',
+            role: 'user', // default from schema
             createdAt: new Date().toISOString(), // Placeholder, server will manage
             updatedAt: new Date().toISOString(), // Placeholder
             avatarDataUri: null,
@@ -325,10 +345,12 @@ export function ProfileView() {
         });
         updateBioDisplayValue("");
     }
-  }, [profile, user, form, updateBioDisplayValue, isLoadingAuth]);
+  }, [profile, user, form, updateBioDisplayValue, isLoadingAuth, profileError]);
 
+  // Effect to keep form's bio in sync with useCharacterLimit hook's internal value
   useEffect(() => {
-    // Update bio in form if useCharacterLimit's value changes (e.g. from internal textarea edits)
+    // This ensures that if handleBioChangeInternal (from useCharacterLimit) updates bioDisplayValue,
+    // the react-hook-form state for 'bio' is also updated.
     if (bioDisplayValue !== bioFormValue) {
       form.setValue('bio', bioDisplayValue, { shouldDirty: true, shouldValidate: true });
     }
@@ -336,7 +358,7 @@ export function ProfileView() {
 
 
   const getInitials = useCallback(() => {
-    if (!user && !profile && !form.getValues('firstName')) return <UserCircle2 size={32} />; // Check form values too
+    if (!user && !profile && !form.getValues('firstName')) return <UserCircle2 size={32} />;
     const formValues = form.getValues();
     const first = formValues.firstName || profile?.firstName || (user?.user_metadata?.first_name as string)?.[0] || '';
     const last = formValues.lastName || profile?.lastName || (user?.user_metadata?.last_name as string)?.[0] || '';
@@ -344,36 +366,37 @@ export function ProfileView() {
   }, [user, profile, form]);
 
 
-  const currentFormValues = form.watch();
+  const currentFormValues = form.watch(); // Watch all form values
   const displayName = currentFormValues.firstName || currentFormValues.lastName
     ? `${currentFormValues.firstName || ''} ${currentFormValues.lastName || ''}`.trim()
     : user?.email?.split('@')[0] || 'User Profile';
 
 
   const onSubmit = (data: ProfileFormValues) => {
-    // Exclude client-side data URIs for now; actual image upload logic will be in next step
+    // For now, we are only submitting text-based fields.
+    // Image Data URIs (avatarDataUri, bannerDataUri) are in `data` but not sent to updateUserProfile yet.
     const { avatarDataUri, bannerDataUri, ...profileToUpdate } = data;
-    console.log("Form data to submit (text fields only):", profileToUpdate);
-    mutation.mutate(profileToUpdate as Partial<UserProfile>);
+    console.log("Form data to submit (text fields only):", profileToUpdate); // Log what's being sent
+    mutation.mutate(profileToUpdate as Partial<UserProfile>); // Cast to Partial<UserProfile> as server action expects this
   };
 
   const handleCancel = () => {
     if (profile) {
+      // Reset to the original profile data, clearing any client-side image previews
       form.reset({
         ...profile,
-        avatarDataUri: null,
-        bannerDataUri: null,
+        avatarDataUri: null, // Clear temporary preview
+        bannerDataUri: null, // Clear temporary preview
       });
-      updateBioDisplayValue(profile.bio || "");
+      updateBioDisplayValue(profile.bio || ""); // Reset bio character count
     } else if (user) {
+        // Reset to initial user-derived state if no profile existed
          form.reset({
-            id: user.id,
-            email: user.email,
+            id: user.id, email: user.email,
             firstName: (user.user_metadata?.first_name as string) || "",
             lastName: (user.user_metadata?.last_name as string) || "",
             avatarUrl: (user.user_metadata?.avatar_url as string) || null,
-            bannerUrl: null,
-            bio: "", language: "en", ageCategory: null, specificAge: null,
+            bannerUrl: null, bio: "", language: "en", ageCategory: null, specificAge: null,
             role: 'user', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
             avatarDataUri: null, bannerDataUri: null,
         });
@@ -382,12 +405,12 @@ export function ProfileView() {
     toast({ title: "Changes Canceled", description: "Your changes have been discarded."});
   };
 
-  const idPrefix = useId();
+  const idPrefix = useId(); // For unique IDs for form elements
 
   // Use isSessionLoading for the initial full-page skeleton
-  // Use isLoadingAuth for more granular loading within the form if session is loaded but profile isn't yet
   if (isSessionLoading) {
     return (
+      // Full page skeleton (same as before, matches the new layout structure)
       <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg overflow-hidden animate-pulse">
         <Skeleton className="h-32 sm:h-40 md:h-48 w-full rounded-t-lg" />
         <div className="relative px-6 pb-6 flex flex-col items-center text-center">
@@ -396,12 +419,14 @@ export function ProfileView() {
           <Skeleton className="h-4 w-24" />
         </div>
         <CardContent className="px-6 pb-6 pt-0 space-y-6">
+          {/* Skeletons for form fields */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-10 w-full rounded-md" /></div>
             <div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-10 w-full rounded-md" /></div>
           </div>
           <div className="space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-10 w-full rounded-md" /></div>
           <div className="space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-24 w-full rounded-md" /></div>
+          {/* Skeletons for buttons */}
           <div className="flex justify-end gap-2 pt-4 border-t mt-6">
             <Skeleton className="h-10 w-24 rounded-md" />
             <Skeleton className="h-10 w-24 rounded-md" />
@@ -414,30 +439,30 @@ export function ProfileView() {
   if (sessionError) {
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto">
-        <AlertTitle>Session Error</AlertTitle><AlertDescription>{sessionError.message || 'An error occurred while loading your session.'}</AlertDescription>
+        <AlertTitle>Session Error</AlertTitle><AlertDescription>{sessionError.message || 'An error occurred while loading your session. Please try refreshing.'}</AlertDescription>
       </Alert>
     );
   }
 
-  if (!user && !isSessionLoading) {
+  if (!user && !isSessionLoading) { // If still no user after session loading is complete
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto">
-        <AlertTitle>Not Authenticated</AlertTitle><AlertDescription>Please log in to view and edit your profile.</AlertDescription>
+        <AlertTitle>Not Authenticated</AlertTitle><AlertDescription>Please log in to view and edit your profile. You may need to refresh the page.</AlertDescription>
       </Alert>
     );
   }
 
   // If there was a profile loading error after session was confirmed
-  if (profileError && user && !profile) {
-     Sentry.captureMessage('ProfileView: Profile data error on initial load.', {
+  if (profileError && user && !profile && !isLoadingAuth) { // Check isLoadingAuth to ensure profile fetch attempt completed
+     Sentry.captureMessage('ProfileView: Profile data error on initial load, but user session exists.', {
       level: 'error', extra: { userId: user.id, errorMessage: profileError.message },
     });
-    // Allow rendering the form for creation, but show a toast
+    // Allow rendering the form for creation if profile doesn't exist but user does
     toast({
-        title: "Profile Not Found",
-        description: "Could not load existing profile. You can create one by saving changes.",
-        variant: "default",
-        duration: 5000
+        title: "Profile Data Issue",
+        description: `Could not load your existing profile details (${profileError.message}). You can try creating or updating your profile by saving changes.`,
+        variant: "destructive", // More assertive for an error
+        duration: 7000
     });
   }
 
@@ -446,29 +471,36 @@ export function ProfileView() {
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg overflow-hidden">
+          {/* Banner Uploader */}
           <ProfileBannerUploader
             control={form.control}
-            name="bannerDataUri" // Will store data URI
-            defaultImage={form.watch('bannerUrl')} // Reads initial URL from form state (set by useEffect from profile)
+            name="bannerDataUri" // This field in react-hook-form will hold the Data URI
+            defaultImage={form.watch('bannerUrl')} // Reads initial URL from profile.bannerUrl
             disabled={mutation.isPending}
           />
-          <div className="px-6 pb-6 pt-0 text-center">
+
+          <div className="relative px-6 pb-6 flex flex-col items-center text-center">
+            {/* Avatar Uploader */}
             <ProfileAvatarUploader
               control={form.control}
-              name="avatarDataUri" // Will store data URI
-              defaultImage={form.watch('avatarUrl')} // Reads initial URL from form state
+              name="avatarDataUri" // This field in react-hook-form will hold the Data URI
+              defaultImage={form.watch('avatarUrl')} // Reads initial URL from profile.avatarUrl
               displayName={displayName}
               getInitialsFn={getInitials}
               disabled={mutation.isPending}
             />
             <CardTitle className="text-2xl font-semibold mt-3">{displayName}</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              {currentFormValues.role ? currentFormValues.role.charAt(0).toUpperCase() + currentFormValues.role.slice(1) : 'User'}
+              {/* Display role from form state, falling back to profile, then 'User' */}
+              {currentFormValues.role ? currentFormValues.role.charAt(0).toUpperCase() + currentFormValues.role.slice(1) : (profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User')}
             </CardDescription>
           </div>
 
-          <CardContent className="px-6 pb-6 pt-4 space-y-6">
+          {/* Form Content */}
+          <CardContent className="px-6 pb-6 pt-0 space-y-6">
+            {/* Basic Info Section */}
             <div className="space-y-4">
+                {/* First Name and Last Name side-by-side */}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <FormField
                     control={form.control}
@@ -498,6 +530,7 @@ export function ProfileView() {
                   />
                 </div>
 
+                {/* Email (Read-only) */}
                 <FormField
                   control={form.control}
                   name="email"
@@ -511,10 +544,10 @@ export function ProfileView() {
                               type="email"
                               placeholder="your.email@example.com"
                               {...field}
-                              value={field.value || user?.email || ""}
-                              readOnly
-                              disabled // Always disabled
-                              className="pl-10 cursor-not-allowed bg-muted/50"
+                              value={field.value || user?.email || ""} // Prioritize form, then auth user
+                              readOnly // Make it clear it's not editable here
+                              disabled // Visually indicate non-interactivity
+                              className="pl-10 cursor-not-allowed bg-muted/50" // Style as disabled
                           />
                         </FormControl>
                         <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -525,23 +558,24 @@ export function ProfileView() {
                   )}
                 />
 
+                {/* Biography */}
                 <FormField
                   control={form.control}
                   name="bio"
-                  render={({ field: formFieldControl }) => (
+                  render={({ field: formFieldControl }) => ( // Renamed field to avoid conflict
                     <FormItem className="space-y-2">
                       <FormLabel htmlFor={`${idPrefix}-bio`}>Biography</FormLabel>
                       <FormControl>
                         <Textarea
                           id={`${idPrefix}-bio`}
                           placeholder="Write a few sentences about yourself"
-                          value={bioDisplayValue}
+                          value={bioDisplayValue} // Controlled by useCharacterLimit
                           onChange={(e) => {
-                              handleBioChangeInternal(e);
-                              formFieldControl.onChange(e.target.value);
+                              handleBioChangeInternal(e); // Updates useCharacterLimit's state
+                              formFieldControl.onChange(e.target.value); // Updates react-hook-form's state
                           }}
                           maxLength={bioMaxLength}
-                          className="min-h-[80px] resize-none"
+                          className="min-h-[80px] resize-none" // Match template
                           disabled={mutation.isPending}
                         />
                       </FormControl>
@@ -553,8 +587,9 @@ export function ProfileView() {
                   )}
                 />
 
-                <Separator className="my-6 !mt-6 !mb-4"/>
+                <Separator className="my-6 !mt-6 !mb-4"/> {/* Added ! for important spacing */}
 
+                {/* Other profile fields - simplified for now, can use Selects later */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField control={form.control} name="language" render={({ field }) => (
                       <FormItem className="space-y-2"><FormLabel>Preferred Language</FormLabel><FormControl><Input {...field} value={field.value || ""} placeholder="e.g., English" disabled={mutation.isPending}/></FormControl><FormMessage /></FormItem>
@@ -568,6 +603,7 @@ export function ProfileView() {
                 )} />
 
 
+                {/* Subscription Info (Read-only section) */}
                 {(currentFormValues.stripeCustomerId || currentFormValues.subscriptionStatus) && (
                   <>
                     <Separator className="my-6 !mt-6 !mb-4"/>
@@ -583,6 +619,7 @@ export function ProfileView() {
                   </>
                 )}
 
+                {/* Account Info (Read-only section) */}
                 <Separator className="my-6 !mt-6 !mb-4"/>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
                    <div className="space-y-1">
@@ -605,6 +642,7 @@ export function ProfileView() {
             </div>
           </CardContent>
 
+          {/* Footer with Save and Cancel buttons */}
           <div className="border-t border-border px-6 py-4 flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={handleCancel} disabled={mutation.isPending || !form.formState.isDirty}>
               <Ban className="mr-2 h-4 w-4"/> Cancel
