@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { PassForgeLogo } from '@/components/icons';
 import { Loader2, UserCircle2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
  * Renders the main header for the homepage.
@@ -43,10 +44,18 @@ const HeroHeader: React.FC = () => {
   }, []);
 
   const {
-    user, // Raw Supabase user from session
-    profile, // Detailed profile
-    isSessionLoading, // True while AuthSessionProvider checks initial session
+    user, 
+    profile, 
+    isSessionLoading,
+    sessionError,
+    isLoadingAuth, // Composite loading: session OR (session exists AND profile is loading)
   } = useAuth();
+
+  // Refined condition to show skeletons:
+  // Show skeletons if not mounted, or if auth hook reports session loading,
+  // OR if session is not loading but we don't have a user yet AND there's no session error.
+  const showSkeletons = !mounted || isSessionLoading || (!user && !sessionError);
+  const currentIsAuthenticated = mounted && !!user && !sessionError; // User exists and no error
 
   const handleDropdownEnter = (label: string) => {
     if (dropdownTimeoutRef.current) {
@@ -111,7 +120,6 @@ const HeroHeader: React.FC = () => {
   };
   
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
-  const currentIsAuthenticated = !!user; // Use basic session check for button visibility
 
   return (
     <motion.header
@@ -158,15 +166,19 @@ const HeroHeader: React.FC = () => {
           </div>
 
           <div className="hidden md:flex items-center flex-shrink-0 space-x-2 sm:space-x-4 lg:space-x-6">
-            {(!mounted || isSessionLoading) ? (
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            {showSkeletons ? (
+              <>
+                <Skeleton className="h-8 w-20" /> 
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </>
             ) : currentIsAuthenticated ? (
               <>
                 <span className="text-sm text-foreground hidden sm:inline">
                   Hi, {getDisplayName()}
                 </span>
                 <Avatar className="h-8 w-8 text-sm">
-                  <AvatarImage src={avatarUrl || undefined} alt={getDisplayName()} />
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt={getDisplayName()} />}
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {getInitials()}
                   </AvatarFallback>
@@ -206,8 +218,8 @@ const HeroHeader: React.FC = () => {
         isOpen={isMobileMenuOpen}
         items={NAV_ITEMS_MOBILE}
         onClose={toggleMobileMenu}
-        isSessionLoading={!mounted || isSessionLoading} // Pass combined loading state
-        isAuthenticated={mounted && currentIsAuthenticated} // Pass combined auth state
+        isSessionLoading={showSkeletons} // Pass the comprehensive loading state
+        isAuthenticated={currentIsAuthenticated} // Pass the derived authenticated state
       />
     </motion.header>
   );
