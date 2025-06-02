@@ -16,7 +16,7 @@ interface UpdateProfileResult {
 // Define a type that includes the base Profile and the potential data URI fields
 type UpdateProfileData = Partial<UserProfile> & {
   avatarDataUri?: string | null;
-  bannerDataUri?: string | null;
+  bannerImgDataUri?: string | null;
 };
 
 /**
@@ -59,7 +59,7 @@ export async function updateUserProfile(
     subscriptionStartDate, // Usually managed by billing integration
     subscriptionEndDate, // Usually managed by billing integration
     avatarDataUri, // Handled as base64 for upload
-    bannerDataUri, // Handled as base64 for upload
+    bannerImgDataUri, // Handled as base64 for upload
     ...updatableData // The rest of the fields are candidates for update
   } = data;
 
@@ -120,6 +120,41 @@ export async function updateUserProfile(
   }
 
   // --- Handle Banner Upload ---
+  if (bannerImgDataUri) {
+    try {
+      // Extract base64 data
+      const base64Data = bannerImgDataUri.split(';base64,').pop();
+      if (!base64Data) throw new Error("Invalid banner Data URI format.");
+      const buffer = Buffer.from(base64Data, 'base64');
+      const fileExtension = bannerImgDataUri.substring('data:image/'.length, bannerImgDataUri.indexOf(';base64'));
+      const filePath = `banners/${user.id}.${fileExtension}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profiles') // Assuming 'profiles' is your storage bucket name (or adjust if you have a 'banners' bucket)
+        .upload(filePath, buffer, {
+          cacheControl: '3600', // Cache for 1 hour
+          upsert: true, // Overwrite existing file
+          contentType: `image/${fileExtension}`
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL - assuming bucket is public or RLS allows public read
+      const { data: publicUrlData } = supabase.storage.from('profiles').getPublicUrl(filePath);
+      if (publicUrlData?.publicUrl) {
+        dataToUpdate.banner_img_url = publicUrlData.publicUrl;
+        logger.info(`Banner uploaded successfully for user ID: ${user.id}`);
+      } else {
+         logger.warn(`Failed to get public URL for banner for user ID: ${user.id}`);
+      }
+
+    } catch (uploadError: any) {
+      logger.error(`Banner upload failed for user ID: ${user.id}`, { error: uploadError.message });
+      return { error: `Failed to upload banner: ${uploadError.message}` };
+    }
+  } else if (bannerImgDataUri === null) {
+      dataToUpdate.banner_img_url = null;
+  }
   dataToUpdate.updated_at = new Date().toISOString();
 
   logger.info(`Attempting to update profile for user ID: ${user.id}`, { dataToUpdate });
@@ -152,7 +187,7 @@ export async function updateUserProfile(
     specificAge: updatedProfile.specific_age,
     language: updatedProfile.language,
     avatarUrl: updatedProfile.avatar_url,
-    bannerUrl: updatedProfile.banner_url,
+    bannerImgUrl: updatedProfile.banner_img_url,
     bio: updatedProfile.bio,
     role: updatedProfile.role,
     stripeCustomerId: updatedProfile.stripe_customer_id,
