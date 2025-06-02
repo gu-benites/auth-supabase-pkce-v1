@@ -14,14 +14,14 @@ This feature module is responsible for rendering the main landing page of the Pa
 
 ## 3. Core Modules & Components
 
-*   **`src/features/homepage/layout/homepage-layout.tsx`**: The main orchestrating component for the entire homepage experience. It renders the `HeroHeader`, `HeroCanvasBackground`, and `HeroContent`. This component was formerly `hero-section.tsx`.
+*   **`src/features/homepage/layout/homepage-layout.tsx`**: The main orchestrating component for the entire homepage experience. It renders the `HeroHeader`, `HeroCanvasBackground`, and `HeroContent`. This component was formerly `hero-section.tsx` and is rendered by `src/app/page.tsx`.
 *   **`src/features/homepage/components/hero-header/hero-header.tsx`**: The main navigation header for the homepage.
     *   Integrates with the project's central `useAuth` hook (`@/features/auth/hooks/use-auth.ts`) to display dynamic content based on authentication state (e.g., user's name, appropriate auth buttons).
     *   Benefits from server-side prefetching of user profile data (initiated by `src/app/page.tsx`) for faster initial display of user information.
 *   **`src/features/homepage/components/hero-content/hero-content.tsx`**: Contains the main marketing message, calls-to-action, and visuals of the hero section. Uses `framer-motion` for animations.
 *   **`src/features/homepage/components/hero-canvas-background/hero-canvas-background.tsx`**: Renders an interactive dot-matrix background animation using HTML5 Canvas.
-*   **`src/features/homepage/components/rotating-text/`**: Component for animated rotating text effects.
-*   **`src/features/homepage/components/shiny-text/`**: Component for text with an animated shine effect.
+*   **`src/features/homepage/components/rotating-text/rotating-text.tsx`**: Component for animated rotating text effects.
+*   **`src/features/homepage/components/shiny-text/shiny-text.tsx`**: Component for text with an animated shine effect.
 *   **`src/features/homepage/constants/`**: Stores constants like navigation items and canvas animation parameters.
 *   **`src/features/homepage/types/`**: TypeScript type definitions specific to the homepage feature.
 
@@ -69,8 +69,7 @@ This feature module is responsible for rendering the main landing page of the Pa
 │   │   ├── mobile-menu.tsx
 │   │   └── nav-link.tsx
 │   ├── rotating-text/
-│   │   ├── rotating-text.tsx
-│   │   └── rotating-text.fixed.tsx
+│   │   └── rotating-text.tsx
 │   ├── shiny-text/
 │   │   └── shiny-text.tsx
 │   └── index.ts                    # Barrel file for components
