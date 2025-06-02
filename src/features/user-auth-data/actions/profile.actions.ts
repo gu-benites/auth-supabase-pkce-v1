@@ -62,21 +62,22 @@ export async function updateUserProfile(
     bannerImgDataUri, // Handled as base64 for upload
     ...updatableData // The rest of the fields are candidates for update
   } = data;
-
-  const dataToUpdate: Record<string, any> = { ...updatableData };
-
-  // Ensure fields match the schema expected by the 'profiles' table
-  // Supabase typically uses snake_case for column names
-  if (dataToUpdate.firstName !== undefined) dataToUpdate.first_name = dataToUpdate.firstName;
-  if (dataToUpdate.lastName !== undefined) dataToUpdate.last_name = dataToUpdate.lastName;
-  if (dataToUpdate.ageCategory !== undefined) dataToUpdate.age_category = dataToUpdate.ageCategory;
-  if (dataToUpdate.specificAge !== undefined) dataToUpdate.specific_age = dataToUpdate.specificAge;
   
-  // Remove camelCase versions if snake_case was added
-  delete dataToUpdate.firstName;
-  delete dataToUpdate.lastName;
-  delete dataToUpdate.ageCategory;
-  delete dataToUpdate.specificAge;
+  const userDataToUpdate: Record<string, any> = {};
+
+  // Map camelCase updatableData to snake_case for database
+  if (updatableData.firstName !== undefined) userDataToUpdate.first_name = updatableData.firstName;
+  if (updatableData.lastName !== undefined) userDataToUpdate.last_name = updatableData.lastName;
+  if (updatableData.gender !== undefined) userDataToUpdate.gender = updatableData.gender;
+  if (updatableData.ageCategory !== undefined) userDataToUpdate.age_category = updatableData.ageCategory;
+  if (updatableData.specificAge !== undefined) userDataToUpdate.specific_age = updatableData.specificAge;
+  if (updatableData.language !== undefined) userDataToUpdate.language = updatableData.language;
+  if (updatableData.bio !== undefined) userDataToUpdate.bio = updatableData.bio;
+
+  // Include other updatable fields if necessary, ensure snake_case mapping
+  // For example: if (updatableData.someOtherField !== undefined) userDataToUpdate.some_other_field = updatableData.someOtherField;
+
+  userDataToUpdate.updated_at = new Date().toISOString();
 
   // --- Handle Avatar Upload ---
   if (avatarDataUri) {
@@ -101,7 +102,7 @@ export async function updateUserProfile(
       // Get public URL - assuming bucket is public or RLS allows public read
       const { data: publicUrlData } = supabase.storage.from('profiles').getPublicUrl(filePath);
       if (publicUrlData?.publicUrl) {
-        dataToUpdate.avatar_url = publicUrlData.publicUrl;
+        userDataToUpdate.avatar_url = publicUrlData.publicUrl;
         logger.info(`Avatar uploaded successfully for user ID: ${user.id}`);
       } else {
          logger.warn(`Failed to get public URL for avatar for user ID: ${user.id}`);
@@ -115,7 +116,7 @@ export async function updateUserProfile(
     }
   } else if (avatarDataUri === null) {
       // If avatarDataUri is explicitly null, it means the user removed the image
-      dataToUpdate.avatar_url = null;
+      userDataToUpdate.avatar_url = null;
       // TODO: Optionally, delete the old file from storage
   }
 
@@ -142,7 +143,7 @@ export async function updateUserProfile(
       // Get public URL - assuming bucket is public or RLS allows public read
       const { data: publicUrlData } = supabase.storage.from('profiles').getPublicUrl(filePath);
       if (publicUrlData?.publicUrl) {
-        dataToUpdate.banner_img_url = publicUrlData.publicUrl;
+ userDataToUpdate.banner_img_url = publicUrlData.publicUrl;
         logger.info(`Banner uploaded successfully for user ID: ${user.id}`);
       } else {
          logger.warn(`Failed to get public URL for banner for user ID: ${user.id}`);
@@ -152,16 +153,15 @@ export async function updateUserProfile(
       logger.error(`Banner upload failed for user ID: ${user.id}`, { error: uploadError.message });
       return { error: `Failed to upload banner: ${uploadError.message}` };
     }
-  } else if (bannerImgDataUri === null) {
-      dataToUpdate.banner_img_url = null;
+  } else if (bannerImgDataUri === null) { // If bannerImgDataUri is explicitly null, remove banner
+      userDataToUpdate.banner_img_url = null;
   }
-  dataToUpdate.updated_at = new Date().toISOString();
 
-  logger.info(`Attempting to update profile for user ID: ${user.id}`, { dataToUpdate });
+  logger.info(`Attempting to update profile for user ID: ${user.id}`, { userDataToUpdate });
 
   const { data: updatedProfile, error: updateError } = await supabase
-    .from("profiles")
-    .update(dataToUpdate)
+    .from("profiles") // Pass the corrected dataToUpdate object
+    .update(userDataToUpdate) // Use the correctly prepared data
     .eq("id", user.id)
     .select()
     .single();

@@ -48,7 +48,8 @@
       "./src/types"
     ],
     "types": [
-      "node"
+ "node",
+      "jest"
     ],
     /* Next.js Plugin */
     "plugins": [
