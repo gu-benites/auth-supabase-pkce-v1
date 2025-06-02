@@ -42,6 +42,16 @@ This document outlines the remaining tasks to fully implement the editable user 
 
 ## 3. Align Database Column Names with Schema (Consistency Check)
 
+## Refactoring ProfileView Component
+
+This section details the refactoring steps taken to break down the large `profile-view.tsx` component into smaller, more manageable parts, improving readability and separation of concerns.
+
+1.  Extracted `ProfileBannerUploader` and `ProfileAvatarUploader` components to `src/features/dashboard/profile/components`.
+2.  Extracted `ProfileSubscriptionDetails` and `ProfileAccountInfo` components to `src/features/dashboard/profile/components`.
+3.  Updated `profile-view.tsx` to use the new components.
+4.  Updated `src/features/dashboard/profile/components/index.ts` to export the new components.
+
+
 Ensure consistency between your Zod schema, form field names, and actual Supabase database column names.
 
 - [x] **Review and Align** - **COMPLETED**

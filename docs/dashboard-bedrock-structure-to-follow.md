@@ -18,7 +18,7 @@ This guide focuses on structuring your dashboard's shared layout, nested routes 
 ## 1\. Dashboard Shared Layout
 *   **Layout File Location**:
     *   `/src/app/(dashboard)/layout.tsx` (This uses `DashboardLayout` from `features`)
-    *   Purpose: Defines the persistent UI shell (sidebar, header, etc.) for all routes within the `(dashboard)` route group. The `(dashboard)` group itself does not add to the URL path.
+    *   Purpose: Defines the persistent UI shell (sidebar, header, etc.) for all routes within the `(dashboard)` route group. **Crucially, this Server Component handles server-side prefetching of the authenticated user's profile data.** The `(dashboard)` group itself does not add to the URL path.
 
 *   **Conceptual** Layout Component **(`/src/app/(dashboard)/layout.tsx`)**:
     ```
@@ -38,17 +38,19 @@ This guide focuses on structuring your dashboard's shared layout, nested routes 
 
 *   **Shared UI Components (Sidebar, Header, User Menu)**:
     
-    *   **Location**: `/src/features/dashboard/layout/` **[PHASE 1 COMPLETE]**
+    *   **Location**: `/src/features/dashboard/components/` **[PHASE 1 COMPLETE - ADJUSTED LOCATION]**
     *   **Files**:
-        *   `dashboard-sidebar.tsx` (exports `DashboardSidebar` component) **[CREATED IN PHASE 1]**
-        *   `dashboard-header.tsx` (exports `DashboardHeader` component) **[CREATED IN PHASE 1]**
-        *   `user-menu.tsx` (exports `UserMenu` component, used within `DashboardSidebar`) **[CREATED IN PHASE 1]**
-        *   `index.ts` (Barrel file: `export * from './dashboard-sidebar'; export * from './dashboard-header'; export * from './user-menu';`) **[CREATED IN PHASE 1]**
+        *   `dashboard-sidebar.tsx` (exports `DashboardSidebar` component) **[CREATED IN PHASE 1]** - Contains navigation links.
+        *   `dashboard-header.tsx` (exports `DashboardHeader` component) **[CREATED IN PHASE 1]** - Contains page title and header controls.
+        *   `dashboard-user-menu.tsx` (exports `DashboardUserMenu` component, used within `DashboardSidebar`) **[CREATED IN PHASE 1]** - Uses the `useAuth` hook to access `user` and `profile` data for displaying the user's name, email, and avatar. Handles logout using `signOutUserAction`.
+        *   `index.ts` (Barrel file: `export * from './dashboard-sidebar'; export * from './dashboard-header'; export * from './dashboard-user-menu';`) **[CREATED IN PHASE 1]** - Exports the shared components.
 *   **Old Locations (Obsolete after Phase 1):**
     * `src/features/dashboard/components/sidebar.tsx` `[OBSOLETE after PHASE 1]`
     * Header logic was inside `src/features/dashboard/components/dashboard-layout.tsx` `[EXTRACTED to /layout/dashboard-header.tsx in PHASE 1]`
 
-## 2\. Dashboard Pages (Example: Main & Chat)
+    **(Note: The `layout` directory was initially planned for shared UI but components were placed directly in `components` during refactoring. This doc reflects the actual final location.)**
+
+## 2\. Dashboard Pages (Example: Main & Chat) - **[UPDATED PATHS IN PHASE 2 & 3]**
 This assumes your dashboard URLs are like `/dashboard`, `/dashboard/chat`, etc.
 
 #### A. Main Dashboard Page (e.g., Overview)
