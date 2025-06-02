@@ -374,10 +374,8 @@ export function ProfileView() {
 
   const onSubmit = (data: ProfileFormValues) => {
     // For now, we are only submitting text-based fields.
-    // Image Data URIs (avatarDataUri, bannerDataUri) are in `data` but not sent to updateUserProfile yet.
-    const { avatarDataUri, bannerDataUri, ...profileToUpdate } = data;
-    console.log("Form data to submit (text fields only):", profileToUpdate); // Log what's being sent
-    mutation.mutate(profileToUpdate as Partial<UserProfile>); // Cast to Partial<UserProfile> as server action expects this
+ console.log("Form data to submit:", data); // Log what's being sent
+ mutation.mutate(data);
   };
 
   const handleCancel = () => {

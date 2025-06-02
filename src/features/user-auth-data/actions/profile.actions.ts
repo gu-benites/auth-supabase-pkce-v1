@@ -13,16 +13,19 @@ interface UpdateProfileResult {
   error?: string;
 }
 
+// Define a type that includes the base Profile and the potential data URI fields
+type UpdateProfileData = Partial<UserProfile> & {
+  avatarDataUri?: string | null;
+  bannerDataUri?: string | null;
+};
+
 /**
  * Server Action to update the current user's profile information.
- * Handles text-based fields only for now.
- *
- * @param data - An object containing the profile fields to update.
+ * Handles text-based fields and image uploads (avatar and banner).
  * @returns An object containing the updated profile data or an error message.
  */
 export async function updateUserProfile(
-  data: Partial<UserProfile>
-): Promise<UpdateProfileResult> {
+  data: UpdateProfileData): Promise<UpdateProfileResult> {
   logger.info("updateUserProfile action started.", {
     providedFields: Object.keys(data),
   });
@@ -53,10 +56,10 @@ export async function updateUserProfile(
     subscriptionStatus,
     subscriptionTier,
     subscriptionPeriod,
-    subscriptionStartDate,
-    subscriptionEndDate,
-    avatarUrl,     // Will be handled separately
-    bannerUrl,     // Will be handled separately
+    subscriptionStartDate, // Usually managed by billing integration
+    subscriptionEndDate, // Usually managed by billing integration
+    avatarDataUri, // Handled as base64 for upload
+    bannerDataUri, // Handled as base64 for upload
     ...updatableData // The rest of the fields are candidates for update
   } = data;
 
@@ -75,6 +78,48 @@ export async function updateUserProfile(
   delete dataToUpdate.ageCategory;
   delete dataToUpdate.specificAge;
 
+  // --- Handle Avatar Upload ---
+  if (avatarDataUri) {
+    try {
+      // Extract base64 data
+      const base64Data = avatarDataUri.split(';base64,').pop();
+      if (!base64Data) throw new Error("Invalid avatar Data URI format.");
+      const buffer = Buffer.from(base64Data, 'base64');
+      const fileExtension = avatarDataUri.substring('data:image/'.length, avatarDataUri.indexOf(';base64'));
+      const filePath = `avatars/${user.id}.${fileExtension}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profiles') // Assuming 'profiles' is your storage bucket name
+        .upload(filePath, buffer, {
+          cacheControl: '3600', // Cache for 1 hour
+          upsert: true, // Overwrite existing file
+          contentType: `image/${fileExtension}`
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL - assuming bucket is public or RLS allows public read
+      const { data: publicUrlData } = supabase.storage.from('profiles').getPublicUrl(filePath);
+      if (publicUrlData?.publicUrl) {
+        dataToUpdate.avatar_url = publicUrlData.publicUrl;
+        logger.info(`Avatar uploaded successfully for user ID: ${user.id}`);
+      } else {
+         logger.warn(`Failed to get public URL for avatar for user ID: ${user.id}`);
+         // Optionally, return an error or continue without updating the URL
+      }
+
+    } catch (uploadError: any) {
+      logger.error(`Avatar upload failed for user ID: ${user.id}`, { error: uploadError.message });
+      // Decide how to handle image upload errors - returning here prevents profile update
+      return { error: `Failed to upload avatar: ${uploadError.message}` };
+    }
+  } else if (avatarDataUri === null) {
+      // If avatarDataUri is explicitly null, it means the user removed the image
+      dataToUpdate.avatar_url = null;
+      // TODO: Optionally, delete the old file from storage
+  }
+
+  // --- Handle Banner Upload ---
   dataToUpdate.updated_at = new Date().toISOString();
 
   logger.info(`Attempting to update profile for user ID: ${user.id}`, { dataToUpdate });
