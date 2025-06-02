@@ -1,13 +1,14 @@
+
 // Providers like ThemeProvider handle their own client boundaries.
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter, Geist, Geist_Mono } from 'next/font/google'; // Added Inter
 import '../styles/globals.css';
 import { Toaster } from "@/components/ui";
 import { AuthSessionProvider, QueryClientProvider, ThemeProvider } from '@/providers';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const inter = Inter({
-  variable: '--font-inter',
+  variable: '--font-sans', // Changed to --font-sans for Tailwind compatibility
   subsets: ['latin'],
   display: 'swap',
 });
