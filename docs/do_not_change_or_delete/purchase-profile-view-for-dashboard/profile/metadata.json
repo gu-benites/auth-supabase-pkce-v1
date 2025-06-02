@@ -1,0 +1,5 @@
+{
+  "name": "User Profile Editor Demo",
+  "description": "A demonstration of a user profile editing dialog, built with React, TypeScript, and Tailwind CSS, featuring shadcn/ui-like components. Allows users to edit profile information including name, username, website, bio, profile picture, and background image.",
+  "requestFramePermissions": []
+}
