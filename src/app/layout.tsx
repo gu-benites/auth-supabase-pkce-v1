@@ -6,14 +6,8 @@ import { Toaster } from "@/components/ui";
 import { AuthSessionProvider, QueryClientProvider, ThemeProvider } from '@/providers';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
   display: 'swap',
 });
@@ -39,7 +33,7 @@ export default function RootLayout({
 }>): JSX.Element {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
