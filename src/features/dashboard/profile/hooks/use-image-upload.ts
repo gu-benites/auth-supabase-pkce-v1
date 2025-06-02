@@ -15,7 +15,7 @@ export function useImageUpload({ onUpload, initialPreviewUrl = null }: UseImageU
   useEffect(() => {
     // Sync with initialPreviewUrl if it changes after mount
     if (initialPreviewUrl !== previewRef.current) {
-        if (previewRef.current) {
+        if (previewRef.current && previewRef.current.startsWith('blob:')) {
           URL.revokeObjectURL(previewRef.current); // Clean up old if it was an object URL
         }
         setPreviewUrl(initialPreviewUrl);
@@ -53,27 +53,28 @@ export function useImageUpload({ onUpload, initialPreviewUrl = null }: UseImageU
     if (previewRef.current && previewRef.current.startsWith('blob:')) {
       URL.revokeObjectURL(previewRef.current);
     }
-    setPreviewUrl(null); // Could reset to initialPreviewUrl or always null
+    setPreviewUrl(null); 
     setFileName(null);
-    previewRef.current = null; // Or reset to initialPreviewUrl
+    previewRef.current = null; 
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset file input
+      fileInputRef.current.value = ""; 
     }
-    // Optionally call onUpload with null or a specific signal for removal
-    // if (onUpload) {
-    //   onUpload(null, null); 
-    // }
-  }, [previewUrl]); // previewUrl was a typo, should be previewRef.current inside the initial if
+    // Call onUpload with null to signal removal to the form
+    if (onUpload) {
+        // @ts-ignore // Allow passing null for File when removing
+        onUpload(null, null);
+    }
+  }, [onUpload]); 
 
   // Cleanup on unmount
   useEffect(() => {
-    const currentPreview = previewRef.current; // Capture current value for cleanup
+    const currentPreview = previewRef.current; 
     return () => {
       if (currentPreview && currentPreview.startsWith('blob:')) {
         URL.revokeObjectURL(currentPreview);
       }
     };
-  }, []); // Empty dependency array means this runs only on unmount
+  }, []); 
 
   return {
     previewUrl,
@@ -82,6 +83,6 @@ export function useImageUpload({ onUpload, initialPreviewUrl = null }: UseImageU
     handleTriggerClick,
     handleFileChange,
     handleRemove,
-    setPreviewUrlDirectly: setPreviewUrl, // For form reset
+    setPreviewUrlDirectly: setPreviewUrl, 
   };
 }

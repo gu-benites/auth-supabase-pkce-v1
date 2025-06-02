@@ -5,7 +5,6 @@
 import React, { useEffect, useId, useState, useCallback } from 'react';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Link from 'next/link'; // Keep Link if "Cancel" navigates away, or remove if it just resets
 import { useAuth } from '@/features/auth/hooks';
 import { UserProfileSchema, type UserProfile } from '@/features/user-auth-data/schemas';
 import { useCharacterLimit, useImageUpload } from './hooks';
@@ -20,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { UserCircle2, Mail, Info, ShieldCheck, Briefcase, CalendarDays, Languages, ImagePlus, X, Edit3, Check, Save, Loader2, Ban } from 'lucide-react';
+import { UserCircle2, Mail, Info, ShieldCheck, Briefcase, CalendarDays, Languages, ImagePlus, X, Check, Save, Loader2, Ban } from 'lucide-react';
 import * as Sentry from '@sentry/nextjs';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -29,10 +28,16 @@ import { useToast } from '@/hooks/use-toast';
 
 const MAX_BIO_LENGTH = 180; // Consistent with schema
 
-// Helper component for Profile Banner, adapted from template's ProfileBg
+// Form type including client-side data URIs
+type ProfileFormValues = UserProfile & {
+  avatarDataUri?: string | null;
+  bannerDataUri?: string | null;
+};
+
+
 const ProfileBannerUploader: React.FC<{
-  control: any; // react-hook-form control
-  name: string; // form field name e.g., "bannerDataUri"
+  control: any; 
+  name: string; 
   defaultImage?: string | null;
 }> = ({ control, name, defaultImage }) => {
   const { toast } = useToast();
@@ -41,14 +46,15 @@ const ProfileBannerUploader: React.FC<{
     fileInputRef: bannerFileInputRef,
     handleTriggerClick: handleBannerTriggerClick,
     handleFileChange: handleBannerFileChange,
-    handleRemove: handleBannerRemove,
+    handleRemove: handleBannerRemoveVisuals, // Renamed to avoid confusion with form field removal
     setPreviewUrlDirectly: setBannerPreviewUrlDirectly
   } = useImageUpload({
     initialPreviewUrl: defaultImage,
     onUpload: (file, dataUrl) => {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file && file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({ title: "Image too large", description: "Banner image must be less than 5MB.", variant: "destructive" });
-        handleBannerRemove(); // Or setPreviewUrlDirectly(defaultImage)
+        handleBannerRemoveVisuals(); // Clear visual preview
+        control.setValue(name, null, { shouldDirty: true }); // Clear form value
         return;
       }
       control.setValue(name, dataUrl, { shouldDirty: true, shouldValidate: true });
@@ -56,8 +62,12 @@ const ProfileBannerUploader: React.FC<{
   });
 
   useEffect(() => {
-    setBannerPreviewUrlDirectly(defaultImage || null);
-  }, [defaultImage, setBannerPreviewUrlDirectly]);
+    // If defaultImage prop changes (e.g. after profile save & refetch), update preview
+    if (defaultImage !== bannerPreview && !(bannerPreview && bannerPreview.startsWith('blob:'))) {
+       setBannerPreviewUrlDirectly(defaultImage || null);
+    }
+  }, [defaultImage, bannerPreview, setBannerPreviewUrlDirectly]);
+
 
   const currentImage = bannerPreview || defaultImage;
 
@@ -65,9 +75,9 @@ const ProfileBannerUploader: React.FC<{
     <Controller
       name={name}
       control={control}
-      defaultValue={null} // Or defaultImage if you want to submit it if unchanged
+      defaultValue={null} 
       render={({ field }) => (
-        <div className="h-40 sm:h-48 md:h-56 bg-muted relative group">
+        <div className="h-32 sm:h-40 md:h-48 bg-muted relative group rounded-t-lg overflow-hidden">
           {currentImage ? (
             <img
               src={currentImage}
@@ -75,35 +85,38 @@ const ProfileBannerUploader: React.FC<{
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10" data-ai-hint="abstract gradient">
-              <ImagePlus className="w-12 h-12 text-muted-foreground/50" />
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5" data-ai-hint="abstract gradient">
+              <ImagePlus className="w-10 h-10 text-muted-foreground/40" />
             </div>
           )}
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div 
+            className="absolute inset-0 flex items-center justify-center gap-2 bg-black/30 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300"
+            role="group"
+            aria-label="Banner image actions"
+          >
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white"
+              className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
               onClick={handleBannerTriggerClick}
               aria-label={currentImage ? "Change banner image" : "Upload banner image"}
             >
-              <ImagePlus size={18} />
+              <ImagePlus size={16} strokeWidth={2}/>
             </Button>
             {currentImage && (
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white"
+                className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
                 onClick={() => {
-                  handleBannerRemove();
-                  field.onChange(null); // Clear form value
-                  setBannerPreviewUrlDirectly(null); // And visual preview explicitly to placeholder
+                  handleBannerRemoveVisuals();
+                  field.onChange(null); 
                 }}
                 aria-label="Remove banner image"
               >
-                <X size={18} />
+                <X size={16} strokeWidth={2}/>
               </Button>
             )}
           </div>
@@ -111,11 +124,11 @@ const ProfileBannerUploader: React.FC<{
             type="file"
             ref={bannerFileInputRef}
             onChange={(e) => {
-              handleBannerFileChange(e);
-              // RHF Controller's field.onChange will be called by useImageUpload's onUpload
+              handleBannerFileChange(e); // useImageUpload calls field.onChange via onUpload
             }}
             className="hidden"
             accept="image/png, image/jpeg, image/webp"
+            id={`${name}-input`}
           />
         </div>
       )}
@@ -124,10 +137,9 @@ const ProfileBannerUploader: React.FC<{
 };
 
 
-// Helper component for Profile Avatar, adapted from template's Avatar
 const ProfileAvatarUploader: React.FC<{
-  control: any; // react-hook-form control
-  name: string; // form field name e.g., "avatarDataUri"
+  control: any; 
+  name: string; 
   defaultImage?: string | null;
   displayName?: string;
   getInitialsFn: () => React.ReactNode;
@@ -138,14 +150,15 @@ const ProfileAvatarUploader: React.FC<{
     fileInputRef: avatarFileInputRef,
     handleTriggerClick: handleAvatarTriggerClick,
     handleFileChange: handleAvatarFileChange,
-    setPreviewUrlDirectly: setAvatarPreviewUrlDirectly
-    // handleRemove for avatar is not in the template, but could be added
+    handleRemove: handleAvatarRemoveVisuals,
+    setPreviewUrlDirectly: setAvatarPreviewUrlDirectly,
   } = useImageUpload({
     initialPreviewUrl: defaultImage,
     onUpload: (file, dataUrl) => {
-       if (file.size > 2 * 1024 * 1024) { // 2MB limit
+       if (file && file.size > 2 * 1024 * 1024) { // 2MB limit
         toast({ title: "Image too large", description: "Avatar image must be less than 2MB.", variant: "destructive" });
-        // Potentially revert preview: setAvatarPreviewUrlDirectly(defaultImage)
+        handleAvatarRemoveVisuals();
+        control.setValue(name, null, { shouldDirty: true });
         return;
       }
       control.setValue(name, dataUrl, { shouldDirty: true, shouldValidate: true });
@@ -153,8 +166,10 @@ const ProfileAvatarUploader: React.FC<{
   });
 
   useEffect(() => {
-    setAvatarPreviewUrlDirectly(defaultImage || null);
-  }, [defaultImage, setAvatarPreviewUrlDirectly]);
+     if (defaultImage !== avatarPreview && !(avatarPreview && avatarPreview.startsWith('blob:'))) {
+        setAvatarPreviewUrlDirectly(defaultImage || null);
+     }
+  }, [defaultImage, avatarPreview, setAvatarPreviewUrlDirectly]);
 
   const currentAvatarSrc = avatarPreview || defaultImage;
 
@@ -163,30 +178,33 @@ const ProfileAvatarUploader: React.FC<{
       name={name}
       control={control}
       defaultValue={null}
-      render={({ field }) => ( // field is not directly used for value, but Controller needs render
-        <div className="relative">
-          <ShadcnAvatar className="h-24 w-24 text-3xl border-4 border-background shadow-lg bg-muted group">
+      render={({ field }) => (
+        <div className="relative -mt-10 sm:-mt-12">
+          <ShadcnAvatar className="h-20 w-20 sm:h-24 sm:w-24 text-3xl border-4 border-background bg-muted shadow-md group">
             <AvatarImage src={currentAvatarSrc || undefined} alt={displayName} />
             <AvatarFallback className="bg-primary text-primary-foreground">
               {getInitialsFn()}
             </AvatarFallback>
             <div
-              className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
+              className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300 cursor-pointer"
               onClick={handleAvatarTriggerClick}
               role="button"
               aria-label="Change profile picture"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleAvatarTriggerClick();}}
             >
-              <ImagePlus size={24} className="text-white" />
+              <ImagePlus size={20} strokeWidth={2} className="text-white" />
             </div>
           </ShadcnAvatar>
           <input
             type="file"
             ref={avatarFileInputRef}
             onChange={(e) => {
-              handleAvatarFileChange(e);
+              handleAvatarFileChange(e); // useImageUpload calls field.onChange via onUpload
             }}
             className="hidden"
             accept="image/png, image/jpeg, image/webp"
+            id={`${name}-input`}
           />
         </div>
       )}
@@ -204,112 +222,101 @@ export function ProfileView() {
     isSessionLoading,
     sessionError,
     profileError,
-    isAuthenticated,
   } = useAuth();
 
-  const form = useForm<UserProfile & { avatarDataUri?: string | null, bannerDataUri?: string | null }>({
-    resolver: zodResolver(UserProfileSchema),
-    defaultValues: profile || {}, // Initialize with profile data
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(UserProfileSchema.extend({
+        avatarDataUri: z.string().optional().nullable(), // Add to validation if needed, or handle separately
+        bannerDataUri: z.string().optional().nullable(),
+    })),
+    defaultValues: profile || {},
   });
 
-  const bioValue = form.watch('bio');
+  const bioFormValue = form.watch('bio');
   const {
+    value: bioDisplayValue, // this is what useCharacterLimit controls
     characterCount: bioCharacterCount,
-    handleChange: handleBioChangeInternal,
-    updateValue: updateBioValue,
+    handleChange: handleBioChangeInternal, // internal handler for the hook
+    updateValue: updateBioDisplayValue, // function to set hook's value
     maxLength: bioMaxLength,
   } = useCharacterLimit({
     maxLength: MAX_BIO_LENGTH,
     initialValue: profile?.bio || "",
   });
 
-  // Sync react-hook-form with useCharacterLimit for bio
+  // Two-way sync for bio field
   useEffect(() => {
-    form.setValue('bio', bioValue || '');
-  }, [bioValue, form]);
-
-  // Sync useCharacterLimit with react-hook-form if profile changes (e.g., after save & refetch)
-  useEffect(() => {
-    if (profile?.bio) {
-      updateBioValue(profile.bio);
-    }
-     // Reset form with new profile data when it changes (e.g., after saving)
+    // When profile loads or changes, update the form and the character limit hook
     if (profile) {
-      form.reset({
+      form.reset({ // reset the whole form
         ...profile,
-        avatarDataUri: null, // Don't repopulate DataURIs from profile URLs
+        avatarDataUri: null, 
         bannerDataUri: null,
       });
+      updateBioDisplayValue(profile.bio || ""); // specifically update the bio hook
     }
-  }, [profile, form, updateBioValue]);
+  }, [profile, form, updateBioDisplayValue]);
+
+  useEffect(() => {
+    // When the character limit hook's value changes (e.g., user typing), update the form field
+    if (bioDisplayValue !== bioFormValue) {
+      form.setValue('bio', bioDisplayValue, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [bioDisplayValue, bioFormValue, form]);
 
 
   const getInitials = useCallback(() => {
-    if (!user && !profile) return <UserCircle2 size={48} />;
+    if (!user && !profile) return <UserCircle2 size={32} />;
     const first = profile?.firstName || (user?.user_metadata?.first_name as string)?.[0] || '';
     const last = profile?.lastName || (user?.user_metadata?.last_name as string)?.[0] || '';
-    return `${first}${last}`.toUpperCase() || <UserCircle2 size={48} />;
+    return `${first}${last}`.toUpperCase() || <UserCircle2 size={32} />;
   }, [user, profile]);
 
   const displayName = profile?.firstName || profile?.lastName
     ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
     : user?.email?.split('@')[0] || 'User Profile';
 
+  
+  // Placeholder for mutation
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  // const { mutate: updateProfile, isPending: isUpdatingProfile } = useMutation({ ... }); // TODO
 
-  // const { mutate: updateProfile, isPending: isUpdatingProfile } = useMutation({ // TODO
-  //   mutationFn: async (data: UserProfile & { avatarDataUri?: string | null, bannerDataUri?: string | null }) => {
-  //     // return updateUserProfile(data); // TODO: Implement this server action
-  //     console.log("Submitting data:", data);
-  //     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
-  //     // throw new Error("Simulated save error!");
-  //     return { success: true, message: "Profile updated successfully!" };
-  //   },
-  //   onSuccess: (data) => {
-  //     toast({ title: "Success", description: data.message });
-  //     // queryClient.invalidateQueries({ queryKey: ['userProfile', user?.id] }); // TODO
-  //   },
-  //   onError: (error) => {
-  //     toast({ title: "Error", description: error.message, variant: "destructive" });
-  //     Sentry.captureException(error, { extra: { component: "ProfileView", stage: "updateMutation" } });
-  //   },
-  // });
-
-
-  const onSubmit = async (data: UserProfile & { avatarDataUri?: string | null, bannerDataUri?: string | null }) => {
+  const onSubmit = async (data: ProfileFormValues) => {
+    setIsUpdatingProfile(true);
     console.log("Form data to submit:", data);
-    toast({ title: "Profile Update", description: "Save functionality not yet implemented. Check console for data." });
-    // updateProfile(data); // TODO: Uncomment when server action is ready
+    // Actual submission logic will go here using `updateProfile(data);`
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+    toast({ title: "Profile Update (Simulated)", description: "Save functionality pending server action. Check console for data." });
+    setIsUpdatingProfile(false);
+    form.reset(data, { keepValues: true, keepDirty: false, keepDefaultValues: false }); // Reset dirty state
   };
 
   const handleCancel = () => {
     if (profile) {
-      form.reset({ // Reset to the original profile data
+      form.reset({ 
         ...profile,
-        avatarDataUri: null, // Clear any temporary client-side image selections
+        avatarDataUri: null, 
         bannerDataUri: null,
       });
-      updateBioValue(profile.bio || ""); // Reset bio hook as well
-      // Also reset useImageUpload previews explicitly if they don't reset via defaultImage prop change
-      // This might require exposing a reset function from useImageUpload or setting previewUrl directly to initial/default.
-      // For now, relying on useEffect in uploader components to reset to defaultImage.
+      updateBioDisplayValue(profile.bio || "");
     }
     toast({ title: "Changes Canceled", description: "Your changes have been discarded."});
   };
   
-  const id = useId(); // For unique form element IDs
+  const idPrefix = useId(); // For unique form element IDs
 
+  // Loading and error states from original ProfileView
   if (isSessionLoading || (!profile && isLoadingAuth && user)) {
+    // Simplified skeleton for brevity, can be expanded
     return (
       <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg overflow-hidden animate-pulse">
-        <div className="h-48 bg-muted" />
-        <div className="relative px-6 pb-6">
-          <div className="-mt-12 flex flex-col items-center text-center">
-            <Skeleton className="h-24 w-24 rounded-full border-4 border-background shadow-lg" />
-            <Skeleton className="h-7 w-40 mt-4 mb-1" />
-            <Skeleton className="h-4 w-24" />
-          </div>
+        <Skeleton className="h-48 w-full rounded-t-lg" /> {/* Banner */}
+        <div className="relative px-6 pb-6 flex flex-col items-center text-center">
+          <Skeleton className="h-24 w-24 rounded-full border-4 border-background shadow-lg -mt-12" /> {/* Avatar */}
+          <Skeleton className="h-7 w-40 mt-4 mb-1" /> {/* Name */}
+          <Skeleton className="h-4 w-24" /> {/* Role */}
         </div>
-        <div className="px-6 pb-6 pt-4 space-y-6">
+        <CardContent className="px-6 pb-6 pt-4 space-y-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-10 w-full rounded-md" /></div>
             <div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-10 w-full rounded-md" /></div>
@@ -320,17 +327,48 @@ export function ProfileView() {
             <Skeleton className="h-10 w-24 rounded-md" />
             <Skeleton className="h-10 w-24 rounded-md" />
           </div>
-        </div>
+        </CardContent>
       </Card>
     );
   }
-  // Error and not authenticated states (unchanged)
-  if (sessionError) { /* ... */ }
-  if (!user && !isSessionLoading) { /* ... */ }
-  if (profileError && user) { /* ... */ }
-  if (!profile && user && !isLoadingAuth) { /* ... */ }
-  if (!profile || !user) { /* ... */ }
 
+  if (sessionError) {
+    return (
+      <Alert variant="destructive" className="max-w-2xl mx-auto">
+        <AlertTitle>Session Error</AlertTitle>
+        <AlertDescription>{sessionError.message || 'An error occurred.'}</AlertDescription>
+      </Alert>
+    );
+  }
+  
+  if (!user && !isSessionLoading) { 
+    return (
+      <Alert variant="destructive" className="max-w-2xl mx-auto">
+        <AlertTitle>Not Authenticated</AlertTitle>
+        <AlertDescription>Please log in.</AlertDescription>
+      </Alert>
+    );
+  }
+  
+  if (profileError && user) { 
+    return (
+      <Alert variant="destructive" className="max-w-2xl mx-auto">
+        <AlertTitle>Error Loading Profile</AlertTitle>
+        <AlertDescription>{profileError.message || 'Could not load profile data.'}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!profile || !user) { 
+     Sentry.captureMessage('ProfileView: Profile or User is unexpectedly null/undefined.', {
+      level: 'error', extra: { userId: user?.id, profileExists: !!profile, userExists: !!user, isLoadingAuth },
+    });
+    return (
+         <Alert variant="destructive" className="max-w-2xl mx-auto">
+            <AlertTitle>Error</AlertTitle><AlertDescription>Profile data unavailable.</AlertDescription>
+        </Alert>
+    );
+  }
 
   return (
     <FormProvider {...form}>
@@ -341,33 +379,31 @@ export function ProfileView() {
             name="bannerDataUri"
             defaultImage={profile?.bannerUrl}
           />
-          <div className="relative px-6 pb-6">
-            <div className="-mt-12 flex flex-col items-center text-center">
-              <ProfileAvatarUploader
-                control={form.control}
-                name="avatarDataUri"
-                defaultImage={profile?.avatarUrl}
-                displayName={displayName}
-                getInitialsFn={getInitials}
-              />
-              <h2 className="text-2xl font-semibold mt-4">{displayName}</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User'}
-              </p>
-            </div>
+          <div className="px-6 pb-6 pt-4 text-center">
+            <ProfileAvatarUploader
+              control={form.control}
+              name="avatarDataUri"
+              defaultImage={profile?.avatarUrl}
+              displayName={displayName}
+              getInitialsFn={getInitials}
+            />
+            <h1 className="text-2xl font-semibold mt-3">{displayName}</h1>
+            <p className="text-sm text-muted-foreground">
+              {profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User'}
+            </p>
           </div>
 
-          <div className="px-6 pb-6 pt-2">
-            <div className="space-y-4">
+          <CardContent className="px-6 pb-6 pt-0">
+            <div className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-4">
                 <FormField
                   control={form.control}
                   name="firstName"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <FormLabel htmlFor={`${id}-first-name`}>First Name</FormLabel>
+                      <FormLabel htmlFor={`${idPrefix}-first-name`}>First name</FormLabel>
                       <FormControl>
-                        <Input id={`${id}-first-name`} placeholder="Your first name" {...field} value={field.value || ""} />
+                        <Input id={`${idPrefix}-first-name`} placeholder="Your first name" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -378,9 +414,9 @@ export function ProfileView() {
                   name="lastName"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <FormLabel htmlFor={`${id}-last-name`}>Last Name</FormLabel>
+                      <FormLabel htmlFor={`${idPrefix}-last-name`}>Last name</FormLabel>
                       <FormControl>
-                        <Input id={`${id}-last-name`} placeholder="Your last name" {...field} value={field.value || ""} />
+                        <Input id={`${idPrefix}-last-name`} placeholder="Your last name" {...field} value={field.value || ""}/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -393,10 +429,22 @@ export function ProfileView() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor={`${id}-email`}>Email</FormLabel>
-                    <FormControl>
-                      <Input id={`${id}-email`} type="email" placeholder="your.email@example.com" {...field} value={field.value || ""} readOnly disabled className="cursor-not-allowed bg-muted/50"/>
-                    </FormControl>
+                    <FormLabel htmlFor={`${idPrefix}-email`}>Email</FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input 
+                            id={`${idPrefix}-email`} 
+                            type="email" 
+                            placeholder="your.email@example.com" 
+                            {...field} 
+                            value={field.value || ""} 
+                            readOnly 
+                            disabled 
+                            className="pl-10 cursor-not-allowed bg-muted/50"
+                        />
+                      </FormControl>
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                     <FormDescription>Your email address cannot be changed here.</FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -406,74 +454,90 @@ export function ProfileView() {
               <FormField
                 control={form.control}
                 name="bio"
-                render={({ field }) => (
+                render={({ field }) => ( // field here is from RHF
                   <FormItem>
-                    <FormLabel htmlFor={`${id}-bio`}>Biography</FormLabel>
+                    <FormLabel htmlFor={`${idPrefix}-bio`}>Biography</FormLabel>
                     <FormControl>
                       <Textarea
-                        id={`${id}-bio`}
+                        id={`${idPrefix}-bio`}
                         placeholder="Write a few sentences about yourself"
-                        {...field}
-                        value={field.value || ""}
+                        value={bioDisplayValue} // Controlled by useCharacterLimit's state
                         onChange={(e) => {
-                          field.onChange(e); // RHF's onChange
-                          handleBioChangeInternal(e); // Character limit hook's onChange
+                            handleBioChangeInternal(e); // Update character limit hook
+                            field.onChange(e.target.value); // Manually update RHF field
                         }}
                         maxLength={bioMaxLength}
-                        className="min-h-[100px]"
+                        className="min-h-[100px] resize-none"
                       />
                     </FormControl>
-                    <FormDescription className="text-right">
+                    <FormDescription className="text-right text-xs">
                       {bioMaxLength - bioCharacterCount} characters left
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              {/* Placeholder for other fields like language, gender, ageCategory, specificAge */}
-              <Separator/>
-              <p className="text-sm text-muted-foreground">Additional details (gender, language, age) can be added here as editable fields.</p>
               
-              {/* Display non-editable fields */}
-               <div className="space-y-2 pt-2">
-                  <Label className="text-xs text-muted-foreground uppercase">User ID</Label>
-                  <p className="text-sm text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center">{profile.id}</p>
-               </div>
-               <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1 space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase">Profile Created</Label>
-                    <p className="text-sm text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center">{new Date(profile.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <div className="flex-1 space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase">Last Updated</Label>
-                    <p className="text-sm text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center">{new Date(profile.updatedAt).toLocaleDateString()}</p>
-                  </div>
+              <Separator className="my-6"/>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="language" render={({ field }) => (
+                    <FormItem><FormLabel>Language</FormLabel><FormControl><Input {...field} value={field.value || ""} placeholder="e.g., English" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="ageCategory" render={({ field }) => (
+                    <FormItem><FormLabel>Age Category</FormLabel><FormControl><Input {...field} value={field.value || ""} placeholder="e.g., Adult" /></FormControl><FormMessage /></FormItem>
+                )} />
               </div>
+              {profile.specificAge !== undefined && (
+                 <FormField control={form.control} name="specificAge" render={({ field }) => (
+                    <FormItem><FormLabel>Specific Age</FormLabel><FormControl><Input type="number" {...field} value={field.value || ""} placeholder="Your age" /></FormControl><FormMessage /></FormItem>
+                )} />
+              )}
 
-
-              {/* Subscription Details Section (Non-editable view) */}
               {(profile.stripeCustomerId || profile.subscriptionStatus) && (
                 <>
-                  <Separator />
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-foreground mb-1 flex items-center">
-                      <Briefcase className="h-4 w-4 mr-2 text-primary/80"/>Subscription Details
-                    </h3>
-                     {/* Display subscription details here as read-only */}
+                  <Separator className="my-6"/>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center"><Briefcase className="h-4 w-4 mr-2 text-primary/80"/>Subscription Details</h3>
+                    <div className="p-4 bg-muted/50 rounded-md space-y-2 text-sm">
+                        {profile.subscriptionStatus && <p><span className="font-medium text-foreground">Status:</span> {profile.subscriptionStatus}</p>}
+                        {profile.subscriptionTier && <p><span className="font-medium text-foreground">Tier:</span> {profile.subscriptionTier}</p>}
+                        {profile.subscriptionPeriod && <p><span className="font-medium text-foreground">Period:</span> {profile.subscriptionPeriod}</p>}
+                        {profile.subscriptionEndDate && <p><span className="font-medium text-foreground">Renews/Expires:</span> {new Date(profile.subscriptionEndDate).toLocaleDateString()}</p>}
+                    </div>
                   </div>
                 </>
               )}
 
-            </div>
-          </div>
+              <Separator className="my-6"/>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                 <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">User ID</p>
+                    <p className="text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center overflow-hidden text-ellipsis whitespace-nowrap">{profile.id}</p>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</p>
+                    <p className="text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center">{profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'User'}</p>
+                 </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Profile Created</p>
+                    <p className="text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center">{new Date(profile.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Last Updated</p>
+                    <p className="text-foreground bg-muted/30 p-2 rounded-md h-9 flex items-center">{new Date(profile.updatedAt).toLocaleDateString()}</p>
+                  </div>
+              </div>
 
-          <div className="border-t border-border px-6 py-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={handleCancel} disabled={false /* TODO: isUpdatingProfile*/}>
+            </div>
+          </CardContent>
+
+          <div className="border-t border-border px-6 py-4 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isUpdatingProfile}>
               <Ban className="mr-2 h-4 w-4"/> Cancel
             </Button>
-            <Button type="submit" disabled={false /* TODO: isUpdatingProfile*/ || !form.formState.isDirty}>
-              {false /* TODO: isUpdatingProfile*/ ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+            <Button type="submit" disabled={isUpdatingProfile || !form.formState.isDirty}>
+              {isUpdatingProfile ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
               Save Changes
             </Button>
           </div>
