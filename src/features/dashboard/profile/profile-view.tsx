@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/features/auth/hooks';
 import { UserProfileSchema, type UserProfile } from '@/features/user-auth-data/schemas';
-import { useCharacterLimit, useImageUpload } from '@/hooks'; // Corrected path to global hooks
 import { updateUserProfile } from '@/features/user-auth-data/actions';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -23,6 +22,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { UserCircle2, Mail, Info, ShieldCheck, Briefcase, CalendarDays, Languages, ImagePlus, X, Save, Loader2, Ban } from 'lucide-react';
+import { useCharacterLimit, useImageUpload } from './hooks'; // Corrected path to local hooks
+
 import * as Sentry from '@sentry/nextjs';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -85,7 +86,7 @@ const ProfileBannerUploader: React.FC<{
   return (
     <Controller
       name={name}
-      control={control}
+ control={control}
       defaultValue={null} // Default to null for the DataURI field
       render={({ field }) => ( // field.onChange will be called by useImageUpload's onUpload
         <div className="h-32 sm:h-40 md:h-48 bg-muted relative group rounded-t-lg overflow-hidden">
@@ -97,7 +98,7 @@ const ProfileBannerUploader: React.FC<{
               data-ai-hint="abstract banner"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5" data-ai-hint="abstract pattern gradient">
+ <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5" data-ai-hint="abstract pattern gradient">
               <ImagePlus className="w-10 h-10 text-muted-foreground/40" />
             </div>
           )}
@@ -111,7 +112,7 @@ const ProfileBannerUploader: React.FC<{
                 type="button"
                 variant="outline"
                 size="icon"
-                className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
+ className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
                 onClick={handleBannerTriggerClick}
                 aria-label={currentImage ? "Change banner image" : "Upload banner image"}
                 disabled={disabled}
@@ -123,7 +124,7 @@ const ProfileBannerUploader: React.FC<{
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
+ className="z-10 rounded-full bg-black/60 text-white hover:bg-black/80 border-white/50 hover:border-white focus-visible:ring-white"
                   onClick={() => {
                     handleBannerRemoveVisuals(); // Clears client-side preview
                     field.onChange(null); // Updates react-hook-form state
@@ -195,7 +196,7 @@ const ProfileAvatarUploader: React.FC<{
   return (
     <Controller
       name={name}
-      control={control}
+ control={control}
       defaultValue={null} // Default to null for the DataURI field
       render={({ field }) => ( // field.onChange will be called by useImageUpload's onUpload
         <div className="relative -mt-10 sm:-mt-12 flex justify-center">
@@ -207,7 +208,7 @@ const ProfileAvatarUploader: React.FC<{
             {!disabled && (
                 <div
                 className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300 cursor-pointer"
-                onClick={handleAvatarTriggerClick}
+ onClick={handleAvatarTriggerClick}
                 role="button"
                 aria-label="Change profile picture"
                 tabIndex={0}
@@ -470,7 +471,7 @@ export function ProfileView() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-lg overflow-hidden">
           {/* Banner Uploader */}
-          <ProfileBannerUploader
+ <ProfileBannerUploader
             control={form.control}
             name="bannerDataUri" // This field in react-hook-form will hold the Data URI
             defaultImage={form.watch('bannerUrl')} // Reads initial URL from profile.bannerUrl
@@ -480,7 +481,7 @@ export function ProfileView() {
           <div className="relative px-6 pb-6 flex flex-col items-center text-center">
             {/* Avatar Uploader */}
             <ProfileAvatarUploader
-              control={form.control}
+ control={form.control}
               name="avatarDataUri" // This field in react-hook-form will hold the Data URI
               defaultImage={form.watch('avatarUrl')} // Reads initial URL from profile.avatarUrl
               displayName={displayName}

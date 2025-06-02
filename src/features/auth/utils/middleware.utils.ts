@@ -100,6 +100,7 @@ export async function updateSession(request: NextRequest) {
     '/', // Homepage
     '/dashboard',
     '/dashboard/chat',
+    '/dashboard/profile', // Added /dashboard/profile as a public path
     '/login',
     '/register',
     '/forgot-password',
