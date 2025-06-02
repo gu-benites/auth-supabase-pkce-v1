@@ -17,7 +17,7 @@ import {
 import { BarChart, CheckCircle, LineChart, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/features/auth/hooks'; 
-import { useEffect, useState } from 'react'; // Added for mounted state
+import { useEffect, useState } from 'react'; 
 
 function LoadingCard() {
   return (
@@ -34,7 +34,7 @@ function LoadingCard() {
 }
 
 export function DashboardHomepageView() {
-  const { user, profile, isLoadingAuth, sessionError } = useAuth();
+  const { user, profile, isSessionLoading, sessionError } = useAuth(); // Using isSessionLoading
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -42,21 +42,17 @@ export function DashboardHomepageView() {
   }, []);
 
   const getDisplayName = () => {
-    // This function is called when not showing skeletons, so isLoadingAuth is false.
-    // We rely on user and profile being populated.
     if (profile?.firstName) return profile.firstName;
     const userMetaFirstName = user?.user_metadata?.first_name as string | undefined;
     if (userMetaFirstName) return userMetaFirstName;
     if (user?.email) return user.email.split('@')[0];
-    return 'User'; // Fallback if user data is missing even after loading
+    return 'User'; 
   };
   
-  // Refined condition to show skeletons:
-  // Show skeletons if not mounted yet, or if auth hook reports loading, 
-  // OR if auth hook is NOT loading but we don't have a user yet AND there's no session error.
-  const showSkeletons = !mounted || isLoadingAuth || (!user && !sessionError);
+  // Skeleton logic aligned with HeroHeader
+  const showSkeletons = !mounted || isSessionLoading;
   
-  const displayName = showSkeletons ? null : getDisplayName();
+  const displayName = showSkeletons || !user ? "User" : getDisplayName();
 
 
   return (
@@ -71,7 +67,7 @@ export function DashboardHomepageView() {
           <>
             <h1 className="text-3xl sm:text-4xl font-bold">
               <span className="bg-gradient-to-r from-[hsl(var(--chart-1))] to-[hsl(var(--destructive))] bg-clip-text text-transparent">
-                Hello, {displayName}!
+                Hello, {displayName}! 
               </span>
             </h1>
             <p className="text-lg text-muted-foreground mt-1">

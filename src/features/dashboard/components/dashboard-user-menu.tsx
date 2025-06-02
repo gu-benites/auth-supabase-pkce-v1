@@ -84,8 +84,9 @@ export function DashboardUserMenu({
   const {
     user, 
     profile, 
-    isLoadingAuth, // Composite loading: session OR (session exists AND profile is loading)
+    isSessionLoading, // Used for the primary skeleton display
     sessionError,  // Error from AuthSessionProvider
+    // isLoadingAuth is still available if needed for fine-grained profile loading state
   } = useAuth();
 
   useEffect(() => {
@@ -125,7 +126,7 @@ export function DashboardUserMenu({
     const userMetaFirstName = user?.user_metadata?.first_name as string | undefined;
     if (userMetaFirstName) return userMetaFirstName;
     if (user?.email) return user.email.split('@')[0];
-    return "User"; // Fallback, should ideally not be shown if data is truly loaded
+    return "User"; 
   };
 
   const getEmailDisplay = () => {
@@ -141,10 +142,8 @@ export function DashboardUserMenu({
 
   const avatarUrl = profile?.avatarUrl || (user?.user_metadata?.avatar_url as string | undefined);
   
-  // Refined condition to show skeletons:
-  // Show skeletons if auth hook reports loading OR if auth hook is NOT loading but we don't have a user yet AND there's no session error.
-  // This latter part targets the phase where AuthSessionProvider's initial check is done (isLoading: false) but user is still null (before SIGNED_IN).
-  const showSkeletons = !mounted || isLoadingAuth || (!user && !sessionError);
+  // Skeleton logic aligned with HeroHeader
+  const showSkeletons = !mounted || isSessionLoading;
 
 
   return (
@@ -165,14 +164,14 @@ export function DashboardUserMenu({
           <div className="relative">
            {showSkeletons ? (
              <Skeleton className="h-9 w-9 rounded-full" />
-           ) : user ? ( // Only render Avatar if user object is available
+           ) : user ? ( 
             <Avatar className="h-9 w-9 text-sm">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt={getDisplayName()} />}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {getInitials()}
                 </AvatarFallback>
             </Avatar>
-           ) : ( // Fallback if not loading and no user (e.g., session error or truly not logged in)
+           ) : ( 
             <Avatar className="h-9 w-9 text-sm">
                 <AvatarFallback className="bg-muted text-muted-foreground">
                     <UserCircle2 size={18} />
@@ -197,14 +196,14 @@ export function DashboardUserMenu({
                     <Skeleton className="h-4 w-24 mb-1" />
                     <Skeleton className="h-3 w-32" />
                   </>
-                ) : user ? ( // Only render user details if user object is available
+                ) : user ? ( 
                   <>
                     <div className="font-medium truncate">{getDisplayName()}</div>
                     <div className="truncate text-xs text-muted-foreground">
                       {getEmailDisplay()}
                     </div>
                   </>
-                ) : ( // Fallback if not loading and no user
+                ) : ( 
                   <div className="font-medium truncate text-muted-foreground">Not Logged In</div>
                 )}
               </div>
