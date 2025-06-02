@@ -28,21 +28,21 @@ The dashboard is built with a focus on server-side data prefetching for optimal 
 
 *   **`src/app/(dashboard)/layout.tsx` (Route Group Layout - Server Component)**
     *   Purpose: Applies the visual dashboard shell to all routes within the `(dashboard)` group.
-    *   Key Responsibility: **Server-side prefetching of the `userProfile`** for the authenticated user using a server-side `QueryClient`. Wraps children in `<HydrationBoundary>` to pass prefetched data to the client.
+    *   Key Responsibility: **Server-side prefetching of the `userProfile`** for the authenticated user using a server-side `QueryClient`. Wraps children in `<HydrationBoundary>` to pass prefetched data to the client. Imports `DashboardLayout` from `@/features/dashboard/layout`.
 
-*   **`src/features/dashboard/components/dashboard-layout.tsx` (Client Component)**
+*   **`src/features/dashboard/layout/dashboard-layout.tsx` (Client Component)**
     *   Purpose: The main UI orchestrator for the dashboard shell, rendered by the route group layout.
-    *   Features: Manages sidebar visibility (open/collapsed, mobile responsiveness) and renders the `DashboardHeader` and `DashboardSidebar`.
+    *   Features: Manages sidebar visibility (open/collapsed, mobile responsiveness) and renders `DashboardHeader` and `DashboardSidebar` from `@/features/dashboard/components`.
 
-*   **`src/features/dashboard/layout/dashboard-header.tsx` (Client Component)**
+*   **`src/features/dashboard/components/dashboard-header.tsx` (Client Component)**
     *   Purpose: Displays at the top of the content area.
     *   Features: Shows a dynamically generated page title based on the current `usePathname`, a mobile menu toggle, and a theme toggle.
 
-*   **`src/features/dashboard/layout/dashboard-sidebar.tsx` (Client Component)**
+*   **`src/features/dashboard/components/dashboard-sidebar.tsx` (Client Component)**
     *   Purpose: Provides primary navigation within the dashboard.
-    *   Features: Contains navigation links, a user profile section (UserMenu), and supports collapsed/expanded states.
+    *   Features: Contains navigation links, a user profile section (`DashboardUserMenu`), and supports collapsed/expanded states.
 
-*   **`src/features/dashboard/layout/user-menu.tsx` (Client Component)**
+*   **`src/features/dashboard/components/dashboard-user-menu.tsx` (Client Component)**
     *   Purpose: Displays user's avatar, name/email, and provides links to Profile, Settings, and a Logout action (with confirmation dialog).
     *   Data: Uses the `useAuth` hook to access user session and profile data.
 
@@ -73,16 +73,16 @@ The dashboard ensures user profile data is loaded efficiently:
 
 3.  **Client-Side Hydration & Access**:
     *   On the client, the application is wrapped in `QueryClientProvider` (from `src/app/layout.tsx`).
-    *   Dashboard components (e.g., `UserMenu`, `DashboardHomepageView`, `ProfileDisplay`) use the **`useAuth` hook** (`@/features/auth/hooks/use-auth.ts`).
+    *   Dashboard components (e.g., `DashboardUserMenu`, `DashboardHomepageView`, `ProfileDisplay`) use the **`useAuth` hook** (`@/features/auth/hooks/use-auth.ts`).
     *   The `useAuth` hook internally calls `useUserProfileQuery` (from `@/features/user-profile/hooks/`).
     *   `useUserProfileQuery` uses TanStack Query's `useQuery` with the `queryKey: ['userProfile', userId]`.
     *   Upon initialization, TanStack Query checks its cache. If data for this `queryKey` exists (because it was passed via `HydrationBoundary`), it **hydrates** this data. This means the profile data is available *immediately* without an additional client-side fetch for the initial render.
 
 4.  **Reactive Updates**:
-    *   After initial hydration, TanStack Query manages the client-side caching, background refetches, and stale-time for the `userProfile` data.
+    *   After initial hydration, TanStack Query manages the client-side caching, background updates, and stale-time for the `userProfile` data.
     *   The `AuthSessionProvider` continues to manage the live raw Supabase session state, and `useAuth` combines both session and profile information.
 
-**Benefit**: This flow ensures that for authenticated users, their profile information is loaded rapidly, enhancing perceived performance as components like `UserMenu` and page-specific views can display personalized data almost instantly.
+**Benefit**: This flow ensures that for authenticated users, their profile information is loaded rapidly, enhancing perceived performance as components like `DashboardUserMenu` and page-specific views can display personalized data almost instantly.
 
 ## 6. Files and Folder Structure (ASCII)
 
@@ -101,21 +101,21 @@ The dashboard ensures user profile data is loaded efficiently:
 └── features/
     └── dashboard/
         ├── README-final-version.md     # This documentation file
-        ├── components/                 # Core UI orchestrator for the dashboard shell
-        │   └── dashboard-layout.tsx    # Client Component: Main UI shell (uses Sidebar & Header)
-        │   └── index.ts                # Barrel file for components/
-        ├── layout/                     # Reusable layout parts for the dashboard shell
+        ├── layout/                     # Main orchestrating layout component for the dashboard shell
+        │   ├── dashboard-layout.tsx    # Client Component: Main UI shell (uses items from ../components/)
+        │   └── index.ts                # Barrel file for layout/
+        ├── components/                 # Reusable UI parts for the dashboard shell
         │   ├── dashboard-header.tsx    # Client Component: Header bar UI
         │   ├── dashboard-sidebar.tsx   # Client Component: Sidebar navigation UI
-        │   ├── user-menu.tsx           # Client Component: Displays user info, auth links
-        │   └── index.ts                # Barrel file for layout/
+        │   ├── dashboard-user-menu.tsx # Client Component: Displays user info, auth links
+        │   └── index.ts                # Barrel file for components/
         ├── dashboard-homepage/         # Feature: Content for the main /dashboard page
-        │   ├── dashboard-homepage-view.tsx # Client Component: UI for /dashboard
+        │   ├── dashboard-homepage-view.tsx
         │   └── index.ts
         ├── chat/                       # Feature: Content for the /dashboard/chat page
-        │   ├── chat-view.tsx           # Client Component: UI for /dashboard/chat
+        │   ├── chat-view.tsx
         │   ├── components/
-        │   │   └── chat-input.tsx      # Client Component: Input area for chat
+        │   │   └── chat-input.tsx
         │   └── index.ts
         └── index.ts                    # Barrel file for dashboard feature exports (e.g., DashboardLayout)
 ```
@@ -125,7 +125,7 @@ The dashboard ensures user profile data is loaded efficiently:
 1.  **Create Route**: Add a new `page.tsx` file under `src/app/(dashboard)/dashboard/your-feature-name/page.tsx`.
     *   This page can also prefetch its own specific data using a `QueryClient` and `HydrationBoundary` if needed.
 2.  **Create Feature View**: Develop your main UI component (e.g., `your-feature-view.tsx`) in `src/features/dashboard/your-feature-name/`.
-3.  **Navigation**: Add a link to the new page in `src/features/dashboard/layout/dashboard-sidebar.tsx`.
+3.  **Navigation**: Add a link to the new page in `src/features/dashboard/components/dashboard-sidebar.tsx`.
 4.  **Access Data**: Use the `useAuth` hook within your feature view to access session and profile data. If you prefetched page-specific data, use `useQuery` for that.
 
 ## 8. Additional Notes
@@ -133,4 +133,3 @@ The dashboard ensures user profile data is loaded efficiently:
 *   **Authentication**: The dashboard assumes a user is authenticated. Route protection is handled by middleware (`src/middleware.ts` delegating to `src/features/auth/utils/middleware.utils.ts`).
 *   **Error Handling**: Errors during profile prefetching in the layout are logged, but the page will still attempt to render. Client-side data fetching errors are handled by TanStack Query and can be surfaced in components.
 *   **Styling**: Uses ShadCN UI components and Tailwind CSS.
-```

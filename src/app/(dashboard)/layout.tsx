@@ -1,5 +1,5 @@
 
-import { DashboardLayout as DashboardLayoutComponent } from '@/features/dashboard/components/dashboard-layout'; // Renamed to avoid conflict
+import { DashboardLayout as DashboardLayoutComponent } from '@/features/dashboard/layout'; // Updated import to use barrel file
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import { getCurrentUserProfile } from '@/features/user-profile/queries';
 import { createClient } from '@/lib/supabase/server';
@@ -27,7 +27,6 @@ export default async function DashboardLayout({
 
   if (userError) {
     logger.error('DashboardLayout (Server): Error fetching user from Supabase.', { error: userError.message });
-    // Decide how to handle this - redirect or show error page
     redirect('/login?message=Session error, please log in again.');
   }
 
@@ -55,7 +54,7 @@ export default async function DashboardLayout({
   }
 
   const dehydratedState = dehydrate(queryClient);
-  console.log(`[${getTimestampLog()}] DashboardLayout (Server): Dehydrated state:`, JSON.stringify(dehydratedState, null, 2).substring(0, 500) + '...'); // Log snippet
+  console.log(`[${getTimestampLog()}] DashboardLayout (Server): Dehydrated state:`, JSON.stringify(dehydratedState, null, 2).substring(0, 500) + '...');
 
   return (
     <HydrationBoundary state={dehydratedState}>
